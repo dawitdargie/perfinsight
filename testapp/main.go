@@ -13,6 +13,8 @@ func main() {
 	}))
 
 	http.HandleFunc("/orders", sdk.HTTPMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		traceID := sdk.ExtractTraceID(r.Context())
+		fmt.Printf("[HANDLER] Trace ID available in handler: %s\n", traceID)
 		fmt.Fprintln(w, "orders response")
 	}))
 

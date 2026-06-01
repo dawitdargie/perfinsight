@@ -25,6 +25,9 @@ func HTTPMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			Endpoint: r.URL.Path,
 		}
 
+		ctx := InjectTraceID(r.Context(), trace.TraceID)
+		r = r.WithContext(ctx)
+
 		rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 		next(rw, r)
 
@@ -33,6 +36,7 @@ func HTTPMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		trace.Latency = latency
 		trace.StatusCode = rw.statusCode
 
-		fmt.Printf("[TRACE] ID=%s endpoint=%s latency=%dms status=%d\n", trace.TraceID, trace.Endpoint, trace.Latency, trace.StatusCode)
+		AddTrace(trace)
+		fmt.Printf("[TRACE STORED] ID=%s endpoint=%s latency=%dms status=%d\n", trace.TraceID, trace.Endpoint, trace.Latency, trace.StatusCode)
 	}
 }
