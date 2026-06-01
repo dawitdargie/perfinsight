@@ -16,6 +16,16 @@ func main() {
 		fmt.Fprintln(w, "orders response")
 	}))
 
+	http.HandleFunc("/missing", sdk.HTTPMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintln(w, "not found")
+	}))
+
+	http.HandleFunc("/error", sdk.HTTPMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintln(w, "error")
+	}))
+
 	fmt.Println("Test app running on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

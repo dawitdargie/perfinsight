@@ -31,7 +31,8 @@ func HTTPMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		endTime := time.Now()
 		latency := endTime.Sub(startTime).Milliseconds()
 		trace.Latency = latency
+		trace.StatusCode = rw.statusCode
 
-		fmt.Printf("[TRACE] ID=%s endpoint=%s latency=%dms\n", trace.TraceID, trace.Endpoint, trace.Latency)
+		fmt.Printf("[TRACE] ID=%s endpoint=%s latency=%dms status=%d\n", trace.TraceID, trace.Endpoint, trace.Latency, trace.StatusCode)
 	}
 }
