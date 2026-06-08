@@ -28,15 +28,22 @@ func HTTPMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		ctx := InjectTraceID(r.Context(), trace.TraceID)
 		r = r.WithContext(ctx)
 
+		AddTrace(trace)
+
 		rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 		next(rw, r)
 
 		endTime := time.Now()
 		latency := endTime.Sub(startTime).Milliseconds()
-		trace.Latency = latency
-		trace.StatusCode = rw.statusCode
 
-		AddTrace(trace)
-		fmt.Printf("[TRACE STORED] ID=%s endpoint=%s latency=%dms status=%d\n", trace.TraceID, trace.Endpoint, trace.Latency, trace.StatusCode)
+		mu.Lock()
+		if len(traces) > 0 {
+			last := &traces[len(traces)-1]
+			last.Latency = latency
+			last.StatusCode = rw.statusCode
+		}
+		mu.Unlock()
+
+		fmt.Printf("[TRACE STORED] ID=%s endpoint=%s latency=%dms status=%d\n", trace.TraceID, trace.Endpoint, latency, rw.statusCode)
 	}
 }
