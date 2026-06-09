@@ -16,6 +16,12 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
+var currentServiceName string
+
+func Init(serviceName string) {
+	currentServiceName = serviceName
+}
+
 func HTTPMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
@@ -41,6 +47,12 @@ func HTTPMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			last := &traces[len(traces)-1]
 			last.Latency = latency
 			last.StatusCode = rw.statusCode
+			SetServiceName(last, currentServiceName)
+			if err := FinalizeTrace(last); err != nil {
+				traces = traces[:len(traces)-1]
+				mu.Unlock()
+				return
+			}
 		}
 		mu.Unlock()
 

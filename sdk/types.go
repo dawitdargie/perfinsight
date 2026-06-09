@@ -1,6 +1,9 @@
 package sdk
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 type Trace struct {
 	TraceID      string
@@ -8,8 +11,11 @@ type Trace struct {
 	Latency      int64
 	StatusCode   int
 	DBTime       int64
+	ExternalTime int64
 	DBQueries    []DBQuery
 	InternalTime int64
+	ServiceName  string
+	Timestamp    time.Time
 }
 
 type DBQuery struct {

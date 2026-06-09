@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/dawitdargie/perfinsight/sdk"
@@ -13,6 +14,8 @@ import (
 var tracedDB *sdk.TracedDB
 
 func main() {
+	sdk.Init("test-service")
+
 	db, err := sql.Open("postgres", "host=localhost port=5433 user=user password=pass dbname=perftest sslmode=disable")
 	if err != nil {
 		log.Fatal(err)
@@ -74,8 +77,12 @@ func main() {
 		traces := sdk.GetTraces()
 		for _, t := range traces {
 			fmt.Fprintf(w, "Endpoint: %s\n", t.Endpoint)
+			fmt.Fprintf(w, "ServiceName: %s\n", t.ServiceName)
 			fmt.Fprintf(w, "Latency: %dms\n", t.Latency)
 			fmt.Fprintf(w, "DBTime: %dms\n", t.DBTime)
+			fmt.Fprintf(w, "ExternalTime: %dms\n", t.ExternalTime)
+			fmt.Fprintf(w, "InternalTime: %dms\n", t.InternalTime)
+			fmt.Fprintf(w, "Timestamp: %s\n", t.Timestamp.Format(time.RFC3339Nano))
 			fmt.Fprintf(w, "Queries: %d\n\n", len(t.DBQueries))
 			for _, q := range t.DBQueries {
 				fmt.Fprintf(w, "  SQL: %s\n", q.SQL)
