@@ -40,8 +40,15 @@ func (s *Server) handleIngestTrace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	validTraces := ValidateBatch(traces)
+	if len(validTraces) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "no valid traces in batch")
+		return
+	}
+
 	select {
-	case s.traceBuffer <- traces:
+	case s.traceBuffer <- validTraces:
 	default:
 		http.Error(w, "buffer full", http.StatusServiceUnavailable)
 		return
