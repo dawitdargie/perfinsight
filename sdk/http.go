@@ -1,7 +1,6 @@
 package sdk
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 )
@@ -17,9 +16,11 @@ func (rw *responseWriter) WriteHeader(code int) {
 }
 
 var currentServiceName string
+var globalExporter *Exporter
 
-func Init(serviceName string) {
+func Init(serviceName string, collectorURL string) {
 	currentServiceName = serviceName
+	globalExporter = NewExporter(collectorURL)
 }
 
 func HTTPMiddleware(next http.HandlerFunc) http.HandlerFunc {
@@ -42,6 +43,9 @@ func HTTPMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		endTime := time.Now()
 		latency := endTime.Sub(startTime).Milliseconds()
 
+		var completedTrace Trace
+		validTrace := false
+
 		mu.Lock()
 		if len(traces) > 0 {
 			last := &traces[len(traces)-1]
@@ -53,9 +57,13 @@ func HTTPMiddleware(next http.HandlerFunc) http.HandlerFunc {
 				mu.Unlock()
 				return
 			}
+			completedTrace = *last
+			validTrace = true
 		}
 		mu.Unlock()
 
-		fmt.Printf("[TRACE STORED] ID=%s endpoint=%s latency=%dms status=%d\n", trace.TraceID, trace.Endpoint, latency, rw.statusCode)
+		if validTrace && globalExporter != nil {
+			globalExporter.Enqueue(completedTrace)
+		}
 	}
 }

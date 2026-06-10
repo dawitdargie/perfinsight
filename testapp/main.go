@@ -7,14 +7,14 @@ import (
 	"net/http"
 	"time"
 
-	_ "github.com/lib/pq"
 	"github.com/dawitdargie/perfinsight/sdk"
+	_ "github.com/lib/pq"
 )
 
 var tracedDB *sdk.TracedDB
 
 func main() {
-	sdk.Init("test-service")
+	sdk.Init("test-service", "http://localhost:9000")
 
 	db, err := sql.Open("postgres", "host=localhost port=5433 user=user password=pass dbname=perftest sslmode=disable")
 	if err != nil {
@@ -92,6 +92,8 @@ func main() {
 		}
 	})
 
+	// Note: exporter.Close() would be called via OS signal handler in production.
+	// For now, traces flush on the 5-second ticker.
 	fmt.Println("Test app running on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
