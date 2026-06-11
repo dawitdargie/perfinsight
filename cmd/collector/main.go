@@ -14,7 +14,14 @@ import (
 
 func main() {
 	srv := collector.NewServer()
-	pool := collector.NewWorkerPool(srv.TraceBuffer(), 10)
+
+	storage, err := collector.NewStorage("host=localhost port=5433 user=user password=pass dbname=perfinsight sslmode=disable")
+	if err != nil {
+		log.Fatalf("Storage init failed: %v", err)
+	}
+	defer storage.Close()
+
+	pool := collector.NewWorkerPool(srv.TraceBuffer(), 10, storage)
 	pool.Start()
 
 	sigCh := make(chan os.Signal, 1)
