@@ -35,9 +35,11 @@ func (wp *WorkerPool) runWorker(id int) {
 }
 
 func (wp *WorkerPool) process(batch []sdk.Trace) {
+	NormalizeBatch(batch)
 	for _, trace := range batch {
-		log.Printf("[WORKER] received trace: id=%s endpoint=%s latency=%dms",
-			trace.TraceID, trace.Endpoint, trace.Latency)
+		log.Printf("[WORKER] normalized: id=%s endpoint=%s latency=%dms db=%dms internal=%dms service=%s",
+			trace.TraceID, trace.Endpoint, trace.Latency,
+			trace.DBTime, trace.InternalTime, trace.ServiceName)
 	}
 }
 
