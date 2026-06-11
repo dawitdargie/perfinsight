@@ -11,12 +11,14 @@ type WorkerPool struct {
 	traceBuffer chan []sdk.Trace
 	workerCount int
 	wg          sync.WaitGroup
+	storage     *Storage
 }
 
-func NewWorkerPool(buffer chan []sdk.Trace, workerCount int) *WorkerPool {
+func NewWorkerPool(buffer chan []sdk.Trace, workerCount int, storage *Storage) *WorkerPool {
 	return &WorkerPool{
 		traceBuffer: buffer,
 		workerCount: workerCount,
+		storage:     storage,
 	}
 }
 
@@ -37,9 +39,9 @@ func (wp *WorkerPool) runWorker(id int) {
 func (wp *WorkerPool) process(batch []sdk.Trace) {
 	NormalizeBatch(batch)
 	for _, trace := range batch {
-		log.Printf("[WORKER] normalized: id=%s endpoint=%s latency=%dms db=%dms internal=%dms service=%s",
-			trace.TraceID, trace.Endpoint, trace.Latency,
-			trace.DBTime, trace.InternalTime, trace.ServiceName)
+		if err := wp.storage.Save(trace); err != nil {
+			log.Printf("[WORKER] failed to save trace %s: %v", trace.TraceID, err)
+		}
 	}
 }
 

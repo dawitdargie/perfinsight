@@ -8,6 +8,7 @@ import (
 type Trace struct {
 	TraceID      string
 	Endpoint     string
+	Method       string
 	Latency      int64
 	StatusCode   int
 	DBTime       int64
