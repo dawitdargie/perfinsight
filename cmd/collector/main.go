@@ -14,6 +14,8 @@ import (
 
 func main() {
 	srv := collector.NewServer()
+	pool := collector.NewWorkerPool(srv.TraceBuffer(), 10)
+	pool.Start()
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
@@ -28,12 +30,15 @@ func main() {
 	<-sigCh
 	log.Println("Shutting down...")
 
+	// 1. Stop accepting new requests
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatalf("Shutdown error: %v", err)
 	}
+
+	// 2. Stop workers — drains remaining batches
+	pool.Stop()
 
 	log.Println("Collector stopped")
 }

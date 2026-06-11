@@ -76,6 +76,10 @@ func (s *Server) Start(addr string) error {
 	return s.httpServer.ListenAndServe()
 }
 
+func (s *Server) TraceBuffer() chan []sdk.Trace {
+	return s.traceBuffer
+}
+
 func (s *Server) Shutdown(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
 }
