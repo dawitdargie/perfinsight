@@ -126,6 +126,58 @@ func (s *Storage) updateMetrics(tx *sql.Tx, t sdk.Trace) error {
 	return err
 }
 
+func (s *Storage) GetEndpoints() ([]string, error) {
+	rows, err := s.db.Query(`SELECT DISTINCT endpoint FROM metrics`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var endpoints []string
+	for rows.Next() {
+		var ep string
+		if err := rows.Scan(&ep); err != nil {
+			return nil, err
+		}
+		endpoints = append(endpoints, ep)
+	}
+	return endpoints, nil
+}
+
+func (s *Storage) GetHourlyAverage(endpoint string) (float64, error) {
+	var avg float64
+	err := s.db.QueryRow(`
+		SELECT COALESCE(AVG(total_latency), 0)
+		FROM traces
+		WHERE endpoint = $1
+		AND created_at > NOW() - INTERVAL '1 hour'
+	`, endpoint).Scan(&avg)
+	return avg, err
+}
+
+func (s *Storage) UpdateBaseline(endpoint string, baseline float64) error {
+	if baseline == 0 {
+		return nil
+	}
+	_, err := s.db.Exec(`
+		UPDATE metrics
+		SET baseline_avg = $1,
+			updated_at = NOW()
+		WHERE endpoint = $2
+	`, baseline, endpoint)
+	return err
+}
+
+func (s *Storage) GetRecentAverage(endpoint string) (float64, error) {
+	var avg float64
+	err := s.db.QueryRow(`
+		SELECT COALESCE(AVG(total_latency), 0)
+		FROM traces
+		WHERE endpoint = $1
+		AND created_at > NOW() - INTERVAL '5 minutes'
+	`, endpoint).Scan(&avg)
+	return avg, err
+}
+
 func (s *Storage) Close() error {
 	return s.db.Close()
 }

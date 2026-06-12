@@ -24,6 +24,9 @@ func main() {
 	pool := collector.NewWorkerPool(srv.TraceBuffer(), 10, storage)
 	pool.Start()
 
+	aggregator := collector.NewAggregator(storage, 60*time.Second)
+	aggregator.Start()
+
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 
@@ -44,7 +47,10 @@ func main() {
 		log.Fatalf("Shutdown error: %v", err)
 	}
 
-	// 2. Stop workers — drains remaining batches
+	// 2. Stop aggregator
+	aggregator.Stop()
+
+	// 3. Stop workers — drains remaining batches
 	pool.Stop()
 
 	log.Println("Collector stopped")
