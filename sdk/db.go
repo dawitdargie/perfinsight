@@ -20,16 +20,19 @@ func (t *TracedDB) recordQuery(sql string, elapsed int64) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	trace := GetLastTrace()
-	if trace == nil {
+	mu.Lock()
+	if len(traces) == 0 {
+		mu.Unlock()
 		return
 	}
+	trace := &traces[len(traces)-1]
 
 	for i := range trace.DBQueries {
 		if trace.DBQueries[i].SQL == sql {
 			trace.DBQueries[i].Count++
 			trace.DBQueries[i].Time += elapsed
 			trace.DBTime += elapsed
+			mu.Unlock()
 			return
 		}
 	}
@@ -40,6 +43,7 @@ func (t *TracedDB) recordQuery(sql string, elapsed int64) {
 		Time:  elapsed,
 	})
 	trace.DBTime += elapsed
+	mu.Unlock()
 }
 
 func (t *TracedDB) Query(query string, args ...interface{}) (*sql.Rows, error) {
