@@ -94,3 +94,114 @@ func TestRuleDBBottleneck_EvidenceContainsPercentage(t *testing.T) {
 		t.Error("Evidence should contain percentage value")
 	}
 }
+
+func TestRuleN1Query_FiresWhenCountExceeds50(t *testing.T) {
+	input := AnalysisInput{
+		Endpoint:     "/orders",
+		TotalLatency: 320,
+		DBTime:       280,
+		DBQueries: []QueryStat{
+			{SQL: "SELECT id FROM orders", Count: 1, Time: 10},
+			{SQL: "SELECT * FROM items WHERE order_id = $1", Count: 55, Time: 270},
+		},
+	}
+	issue := ruleN1Query(input)
+	if issue == nil {
+		t.Fatal("Expected issue, got nil")
+	}
+	if issue.Pattern != "N_PLUS_ONE_QUERY" {
+		t.Errorf("Expected N_PLUS_ONE_QUERY, got %s", issue.Pattern)
+	}
+	if issue.Severity != "critical" {
+		t.Errorf("Expected critical severity, got %s", issue.Severity)
+	}
+}
+
+func TestRuleN1Query_DoesNotFireAtExactly50(t *testing.T) {
+	input := AnalysisInput{
+		Endpoint:     "/orders",
+		TotalLatency: 100,
+		DBTime:       80,
+		DBQueries: []QueryStat{
+			{SQL: "SELECT * FROM items WHERE order_id = $1", Count: 50, Time: 80},
+		},
+	}
+	issue := ruleN1Query(input)
+	if issue != nil {
+		t.Error("Expected nil at exactly 50 — threshold is strictly greater than 50")
+	}
+}
+
+func TestRuleN1Query_ReportsMostRepeatedQuery(t *testing.T) {
+	input := AnalysisInput{
+		Endpoint:     "/orders",
+		TotalLatency: 500,
+		DBTime:       480,
+		DBQueries: []QueryStat{
+			{SQL: "SELECT * FROM items WHERE order_id = $1", Count: 55, Time: 200},
+			{SQL: "SELECT * FROM tags WHERE item_id = $1", Count: 120, Time: 280},
+		},
+	}
+	issue := ruleN1Query(input)
+	if issue == nil {
+		t.Fatal("Expected issue")
+	}
+	if !strings.Contains(issue.Evidence[0], "120") {
+		t.Error("Expected most repeated query (count=120) to be reported")
+	}
+}
+
+func TestRuleN1Query_ReturnsNilWithNoQueries(t *testing.T) {
+	input := AnalysisInput{
+		Endpoint:     "/fast",
+		TotalLatency: 5,
+		DBQueries:    []QueryStat{},
+	}
+	issue := ruleN1Query(input)
+	if issue != nil {
+		t.Error("Expected nil with no queries")
+	}
+}
+
+func TestRuleExternalAPIBottleneck_FiresAbove70Percent(t *testing.T) {
+	input := AnalysisInput{
+		Endpoint:     "/checkout",
+		TotalLatency: 100,
+		DBTime:       10,
+		ExternalTime: 80, // 80%
+		InternalTime: 10,
+	}
+	issue := ruleExternalAPIBottleneck(input)
+	if issue == nil {
+		t.Fatal("Expected issue, got nil")
+	}
+	if issue.Pattern != "EXTERNAL_API_BOTTLENECK" {
+		t.Errorf("Expected EXTERNAL_API_BOTTLENECK, got %s", issue.Pattern)
+	}
+}
+
+func TestRuleExternalAPIBottleneck_ReturnsNilWhenZero(t *testing.T) {
+	input := AnalysisInput{
+		Endpoint:     "/orders",
+		TotalLatency: 100,
+		DBTime:       80,
+		ExternalTime: 0,
+		InternalTime: 20,
+	}
+	issue := ruleExternalAPIBottleneck(input)
+	if issue != nil {
+		t.Error("Expected nil when ExternalTime is zero")
+	}
+}
+
+func TestRuleExternalAPIBottleneck_DoesNotFireBelow70Percent(t *testing.T) {
+	input := AnalysisInput{
+		Endpoint:     "/checkout",
+		TotalLatency: 100,
+		ExternalTime: 60, // 60%
+	}
+	issue := ruleExternalAPIBottleneck(input)
+	if issue != nil {
+		t.Error("Expected nil below 70%")
+	}
+}
