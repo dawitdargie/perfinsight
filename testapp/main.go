@@ -26,6 +26,7 @@ func main() {
 	tracedDB = sdk.WrapDB(db)
 
 	http.HandleFunc("/fast", sdk.HTTPMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(50 * time.Millisecond) // Simulate some processing time
 		fmt.Fprintln(w, "fast response")
 	}))
 
