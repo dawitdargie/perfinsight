@@ -205,3 +205,98 @@ func TestRuleExternalAPIBottleneck_DoesNotFireBelow70Percent(t *testing.T) {
 		t.Error("Expected nil below 70%")
 	}
 }
+
+func TestRuleRegression_FiresWhenMoreThan2xSlower(t *testing.T) {
+	input := AnalysisInput{
+		Endpoint:     "/orders",
+		TotalLatency: 320,
+		BaselineAvg:  100,
+		CurrentAvg:   320, // 3.2x
+	}
+	issue := rulePerformanceRegression(input)
+	if issue == nil {
+		t.Fatal("Expected issue, got nil")
+	}
+	if issue.Pattern != "PERFORMANCE_REGRESSION" {
+		t.Errorf("Expected PERFORMANCE_REGRESSION, got %s", issue.Pattern)
+	}
+	if issue.Severity != "critical" {
+		t.Errorf("Expected critical, got %s", issue.Severity)
+	}
+}
+
+func TestRuleRegression_DoesNotFireAtExactly2x(t *testing.T) {
+	input := AnalysisInput{
+		Endpoint:    "/orders",
+		BaselineAvg: 100,
+		CurrentAvg:  200, // Exactly 2x
+	}
+	issue := rulePerformanceRegression(input)
+	if issue != nil {
+		t.Error("Expected nil at exactly 2x")
+	}
+}
+
+func TestRuleRegression_DoesNotFireBelow2x(t *testing.T) {
+	input := AnalysisInput{
+		Endpoint:    "/orders",
+		BaselineAvg: 100,
+		CurrentAvg:  150, // 1.5x
+	}
+	issue := rulePerformanceRegression(input)
+	if issue != nil {
+		t.Errorf("Expected nil, got issue: %s", issue.Pattern)
+	}
+}
+
+func TestRuleRegression_ReturnsNilWithNoBaseline(t *testing.T) {
+	input := AnalysisInput{
+		Endpoint:    "/new-endpoint",
+		BaselineAvg: 0, // No baseline
+		CurrentAvg:  500,
+	}
+	issue := rulePerformanceRegression(input)
+	if issue != nil {
+		t.Error("Expected nil with no baseline")
+	}
+}
+
+func TestRuleRegression_SetsBaselineAndCurrentMs(t *testing.T) {
+	input := AnalysisInput{
+		Endpoint:    "/orders",
+		BaselineAvg: 100,
+		CurrentAvg:  320,
+	}
+	issue := rulePerformanceRegression(input)
+	if issue == nil {
+		t.Fatal("Expected issue")
+	}
+	if issue.BaselineMs != 100 {
+		t.Errorf("Expected BaselineMs=100, got %.2f", issue.BaselineMs)
+	}
+	if issue.CurrentMs != 320 {
+		t.Errorf("Expected CurrentMs=320, got %.2f", issue.CurrentMs)
+	}
+}
+
+func TestRuleRegression_EvidenceContainsMultiplier(t *testing.T) {
+	input := AnalysisInput{
+		Endpoint:    "/orders",
+		BaselineAvg: 100,
+		CurrentAvg:  320,
+	}
+	issue := rulePerformanceRegression(input)
+	if issue == nil {
+		t.Fatal("Expected issue")
+	}
+	found := false
+	for _, e := range issue.Evidence {
+		if strings.Contains(e, "3.2") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("Evidence should contain 3.2x multiplier")
+	}
+}

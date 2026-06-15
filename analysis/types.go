@@ -30,4 +30,6 @@ type Issue struct {
 	Confidence string
 	Evidence   []string
 	Suggestion []string
+	BaselineMs float64 // Only set by regression rule
+	CurrentMs  float64 // Only set by regression rule
 }

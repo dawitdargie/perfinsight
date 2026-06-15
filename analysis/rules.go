@@ -116,8 +116,35 @@ func ruleExternalAPIBottleneck(input AnalysisInput) *Issue {
 }
 
 // rulePerformanceRegression detects significant increases in latency compared to baseline.
-// Implemented Day 18.
 func rulePerformanceRegression(input AnalysisInput) *Issue {
-	// Implemented Day 18
-	return nil
+	if input.BaselineAvg == 0 {
+		return nil // No baseline yet
+	}
+	if input.CurrentAvg == 0 {
+		return nil // No recent data
+	}
+	ratio := input.CurrentAvg / input.BaselineAvg
+	if ratio <= 2.0 {
+		return nil
+	}
+	percentIncrease := (ratio - 1.0) * 100
+	delta := input.CurrentAvg - input.BaselineAvg
+	return &Issue{
+		Pattern:    "PERFORMANCE_REGRESSION",
+		Severity:   "critical",
+		Confidence: "high",
+		BaselineMs: input.BaselineAvg,
+		CurrentMs:  input.CurrentAvg,
+		Evidence: []string{
+			fmt.Sprintf("Current avg: %.0fms (last 5 minutes)", input.CurrentAvg),
+			fmt.Sprintf("Baseline avg: %.0fms (last 1 hour)", input.BaselineAvg),
+			fmt.Sprintf("Increase: %.1fx slower (+%.0f%% / +%.0fms)", ratio, percentIncrease, delta),
+		},
+		Suggestion: []string{
+			"Review recent code changes or deployments",
+			"Check for new or modified database queries",
+			"Look for changes in external API call patterns",
+			"Profile the endpoint to identify the source of slowdown",
+		},
+	}
 }
