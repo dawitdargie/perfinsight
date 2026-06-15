@@ -110,8 +110,8 @@ func (as *AnalysisService) buildInput(endpoint string) (*AnalysisInput, error) {
 	}, nil
 }
 
-// AnalyzeEndpoint analyzes the given endpoint and returns a list of detected issues.
-func (as *AnalysisService) AnalyzeEndpoint(endpoint string) ([]Issue, error) {
+// AnalyzeEndpoint analyzes the given endpoint and returns a structured result.
+func (as *AnalysisService) AnalyzeEndpoint(endpoint string) (*Result, error) {
 	input, err := as.buildInput(endpoint)
 	if err != nil {
 		return nil, err
@@ -120,5 +120,6 @@ func (as *AnalysisService) AnalyzeEndpoint(endpoint string) ([]Issue, error) {
 		return nil, nil // No data yet
 	}
 	issues := EvaluateRules(*input)
-	return issues, nil
+	result := BuildResult(*input, issues)
+	return result, nil
 }

@@ -25,18 +25,19 @@ func main() {
 	}
 	defer svc.Close()
 
-	issues, err := svc.AnalyzeEndpoint(*endpoint)
+	result, err := svc.AnalyzeEndpoint(*endpoint)
 	if err != nil {
 		log.Fatalf("Analysis failed: %v", err)
 	}
 
-	if len(issues) == 0 {
+	if result == nil || !result.HasIssues {
 		fmt.Printf("No issues detected for %s\n", *endpoint)
 		return
 	}
 
 	// Raw output for now — Day 22 output layer replaces this.
-	for _, issue := range issues {
-		fmt.Printf("Pattern: %s | Severity: %s\n", issue.Pattern, issue.Severity)
+	fmt.Printf("Endpoint: %s | Analyzed: %s\n", result.Endpoint, result.AnalyzedAt.Format("15:04:05"))
+	for _, issue := range result.Issues {
+		fmt.Printf("  Pattern: %s | Severity: %s\n", issue.Pattern, issue.Severity)
 	}
 }

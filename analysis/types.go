@@ -1,5 +1,7 @@
 package analysis
 
+import "time"
+
 // AnalysisInput is the single data model for all rules.
 // It is built from multiple queries across traces, queries, and metrics tables.
 type AnalysisInput struct {
@@ -32,4 +34,18 @@ type Issue struct {
 	Suggestion []string
 	BaselineMs float64 // Only set by regression rule
 	CurrentMs  float64 // Only set by regression rule
+}
+
+// Result is the enriched output of analysis, wrapping issues with context.
+// Output layer (Day 22) formats this struct for display.
+type Result struct {
+	Endpoint     string
+	AnalyzedAt   time.Time
+	Latency      int64
+	DBTime       int64
+	InternalTime int64
+	BaselineAvg  float64
+	CurrentAvg   float64
+	Issues       []Issue
+	HasIssues    bool
 }
