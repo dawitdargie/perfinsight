@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/dawitdargie/perfinsight/analysis"
+	"github.com/dawitdargie/perfinsight/output"
 )
 
 func main() {
@@ -40,14 +41,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error analyzing %s: %v\n", ep, err)
 			continue
 		}
-		if result == nil || !result.HasIssues {
-			fmt.Printf("[%s] No issues detected\n", ep)
-			continue
-		}
-		// Raw output — Day 22 replaces this
-		fmt.Printf("\n[%s] %d issue(s) found:\n", ep, len(result.Issues))
-		for _, issue := range result.Issues {
-			fmt.Printf(" - %s (%s)\n", issue.Pattern, issue.Severity)
-		}
+		fmt.Println(output.FormatResult(result))
 	}
 }
