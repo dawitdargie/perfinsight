@@ -123,3 +123,21 @@ func (as *AnalysisService) AnalyzeEndpoint(endpoint string) (*Result, error) {
 	result := BuildResult(*input, issues)
 	return result, nil
 }
+
+// AllEndpoints returns all known endpoints from the metrics table.
+func (as *AnalysisService) AllEndpoints() ([]string, error) {
+	rows, err := as.db.Query(`SELECT endpoint FROM metrics ORDER BY endpoint`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var endpoints []string
+	for rows.Next() {
+		var ep string
+		if err := rows.Scan(&ep); err != nil {
+			return nil, err
+		}
+		endpoints = append(endpoints, ep)
+	}
+	return endpoints, nil
+}

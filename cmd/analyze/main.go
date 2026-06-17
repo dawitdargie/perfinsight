@@ -10,13 +10,8 @@ import (
 )
 
 func main() {
-	endpoint := flag.String("endpoint", "", "Endpoint to analyze (e.g. /orders)")
+	endpoint := flag.String("endpoint", "all", "Endpoint to analyze, or 'all'")
 	flag.Parse()
-
-	if *endpoint == "" {
-		fmt.Println("Usage: analyze -endpoint /orders")
-		os.Exit(1)
-	}
 
 	svc, err := analysis.NewAnalysisService(
 		"host=localhost port=5433 user=user password=pass dbname=perfinsight sslmode=disable")
@@ -25,19 +20,34 @@ func main() {
 	}
 	defer svc.Close()
 
-	result, err := svc.AnalyzeEndpoint(*endpoint)
-	if err != nil {
-		log.Fatalf("Analysis failed: %v", err)
+	var endpoints []string
+	if *endpoint == "all" {
+		endpoints, err = svc.AllEndpoints()
+		if err != nil {
+			log.Fatalf("Failed to list endpoints: %v", err)
+		}
+		if len(endpoints) == 0 {
+			fmt.Println("No endpoints found. Send some traffic first.")
+			return
+		}
+	} else {
+		endpoints = []string{*endpoint}
 	}
 
-	if result == nil || !result.HasIssues {
-		fmt.Printf("No issues detected for %s\n", *endpoint)
-		return
-	}
-
-	// Raw output for now — Day 22 output layer replaces this.
-	fmt.Printf("Endpoint: %s | Analyzed: %s\n", result.Endpoint, result.AnalyzedAt.Format("15:04:05"))
-	for _, issue := range result.Issues {
-		fmt.Printf("  Pattern: %s | Severity: %s\n", issue.Pattern, issue.Severity)
+	for _, ep := range endpoints {
+		result, err := svc.AnalyzeEndpoint(ep)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error analyzing %s: %v\n", ep, err)
+			continue
+		}
+		if result == nil || !result.HasIssues {
+			fmt.Printf("[%s] No issues detected\n", ep)
+			continue
+		}
+		// Raw output — Day 22 replaces this
+		fmt.Printf("\n[%s] %d issue(s) found:\n", ep, len(result.Issues))
+		for _, issue := range result.Issues {
+			fmt.Printf(" - %s (%s)\n", issue.Pattern, issue.Severity)
+		}
 	}
 }
