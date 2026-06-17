@@ -2,6 +2,7 @@ package output
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/dawitdargie/perfinsight/analysis"
@@ -78,10 +79,28 @@ func formatEvidenceSection(issue analysis.Issue) string {
 	return sb.String()
 }
 
-// formatChangeSection formats the before/after comparison.
-// Fully implemented Day 23 when metrics.go is complete.
 func formatChangeSection(issue analysis.Issue) string {
-	return fmt.Sprintf("📊 Change:\n  %.0fms → %.0fms\n", issue.BaselineMs, issue.CurrentMs)
+	if issue.BaselineMs == 0 {
+		return ""
+	}
+	m := computeMetrics(issue.BaselineMs, issue.CurrentMs)
+	var sb strings.Builder
+	sb.WriteString("📊 Change:\n")
+	if m.isRegression {
+		// Primary: multiplier
+		// Secondary: absolute + percentage in parentheses
+		sb.WriteString(fmt.Sprintf(" ~%.1f× slower than usual\n", m.multiplier))
+		sb.WriteString(fmt.Sprintf(" (%.0fms → %.0fms, ≈ +%.0f%%)\n",
+			issue.BaselineMs, issue.CurrentMs, m.percentage))
+	} else {
+		// Primary: percentage improvement
+		// Secondary: multiplier in parentheses
+		sb.WriteString(fmt.Sprintf(" ~%.0f%% faster than usual\n",
+			math.Abs(m.percentage)))
+		sb.WriteString(fmt.Sprintf(" (%.0fms → %.0fms, ≈ %.1f× faster)\n",
+			issue.BaselineMs, issue.CurrentMs, 1.0/m.multiplier))
+	}
+	return sb.String()
 }
 
 // formatFixSection formats fix suggestions.

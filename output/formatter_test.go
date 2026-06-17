@@ -129,3 +129,71 @@ func TestFormatResult_MultipleIssuesSeparated(t *testing.T) {
 		t.Error("Expected separator between issues")
 	}
 }
+
+func TestFormatResult_RegressionShowsMultiplier(t *testing.T) {
+	result := &analysis.Result{
+		Endpoint:  "/orders",
+		HasIssues: true,
+		Issues: []analysis.Issue{
+			{
+				Pattern:    "PERFORMANCE_REGRESSION",
+				Severity:   "critical",
+				BaselineMs: 100,
+				CurrentMs:  320,
+				Evidence:   []string{"3.2x slower"},
+			},
+		},
+	}
+	out := FormatResult(result)
+	if !strings.Contains(out, "3.2×") {
+		t.Error("Expected multiplier in regression output")
+	}
+	if !strings.Contains(out, "slower") {
+		t.Error("Expected 'slower' in regression output")
+	}
+	if !strings.Contains(out, "100ms → 320ms") {
+		t.Error("Expected before/after values in output")
+	}
+}
+
+func TestFormatResult_ImprovementShowsPercentage(t *testing.T) {
+	result := &analysis.Result{
+		Endpoint:  "/checkout",
+		HasIssues: true,
+		Issues: []analysis.Issue{
+			{
+				Pattern:    "PERFORMANCE_REGRESSION",
+				Severity:   "critical",
+				BaselineMs: 200,
+				CurrentMs:  140, // Faster — improvement
+				Evidence:   []string{"30% faster"},
+			},
+		},
+	}
+	out := FormatResult(result)
+	if !strings.Contains(out, "faster") {
+		t.Error("Expected 'faster' in improvement output")
+	}
+	if !strings.Contains(out, "%") {
+		t.Error("Expected percentage in improvement output")
+	}
+}
+
+func TestFormatResult_NoChangeSectionWithoutBaseline(t *testing.T) {
+	result := &analysis.Result{
+		Endpoint:  "/orders",
+		HasIssues: true,
+		Issues: []analysis.Issue{
+			{
+				Pattern:    "DATABASE_BOTTLENECK",
+				Severity:   "high",
+				BaselineMs: 0, // No baseline
+				Evidence:   []string{"DB slow"},
+			},
+		},
+	}
+	out := FormatResult(result)
+	if strings.Contains(out, "📊 Change") {
+		t.Error("Should not show Change section without baseline")
+	}
+}
