@@ -50,7 +50,13 @@ func formatIssue(issue analysis.Issue) string {
 	var sb strings.Builder
 	icon := severityIcon(issue.Severity)
 	title := patternTitle(issue.Pattern)
-	sb.WriteString(fmt.Sprintf("\n%s %s\n\n", icon, title))
+	explanation := patternExplanation(issue.Pattern)
+
+	sb.WriteString(fmt.Sprintf("\n%s %s\n", icon, title))
+	if explanation != "" {
+		sb.WriteString(fmt.Sprintf(" %s\n", explanation))
+	}
+	sb.WriteString("\n")
 
 	// Change section — only for regression/improvement
 	if issue.BaselineMs > 0 {
@@ -74,7 +80,11 @@ func formatEvidenceSection(issue analysis.Issue) string {
 	var sb strings.Builder
 	sb.WriteString("🔍 Evidence:\n")
 	for _, e := range issue.Evidence {
-		sb.WriteString(fmt.Sprintf(" - %s\n", e))
+		display := e
+		if len(display) > 120 {
+			display = display[:117] + "..."
+		}
+		sb.WriteString(fmt.Sprintf(" - %s\n", display))
 	}
 	return sb.String()
 }
@@ -119,4 +129,12 @@ func formatFixSection(issue analysis.Issue) string {
 
 func formatFooter(result *analysis.Result) string {
 	return fmt.Sprintf("Analyzed at: %s\n", result.AnalyzedAt.Format("2006-01-02 15:04:05"))
+}
+
+// truncateSQL truncates a SQL string to maxLen characters, appending "..." if truncated.
+func truncateSQL(sql string, maxLen int) string {
+	if len(sql) <= maxLen {
+		return sql
+	}
+	return sql[:maxLen] + "..."
 }

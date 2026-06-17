@@ -50,3 +50,19 @@ func patternTitle(pattern string) string {
 		return pattern
 	}
 }
+
+// patternExplanation returns a one-sentence explanation of why a pattern is a problem.
+func patternExplanation(pattern string) string {
+	switch pattern {
+	case "DATABASE_BOTTLENECK":
+		return "Database operations are consuming the majority of this request's time."
+	case "N_PLUS_ONE_QUERY":
+		return "The same query is being executed repeatedly in a loop instead of using a single batch query."
+	case "EXTERNAL_API_BOTTLENECK":
+		return "A third-party API call is consuming the majority of this request's time."
+	case "PERFORMANCE_REGRESSION":
+		return "This endpoint has become significantly slower compared to its historical baseline."
+	default:
+		return ""
+	}
+}

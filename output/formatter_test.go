@@ -197,3 +197,80 @@ func TestFormatResult_NoChangeSectionWithoutBaseline(t *testing.T) {
 		t.Error("Should not show Change section without baseline")
 	}
 }
+
+func TestFormatResult_EmptyEvidenceSkipsSection(t *testing.T) {
+	result := &analysis.Result{
+		Endpoint:  "/orders",
+		HasIssues: true,
+		Issues: []analysis.Issue{
+			{
+				Pattern:  "DATABASE_BOTTLENECK",
+				Severity: "high",
+				Evidence: []string{},
+			},
+		},
+	}
+	out := FormatResult(result)
+	if strings.Contains(out, "🔍 Evidence:") {
+		t.Error("Should not show Evidence heading with empty evidence")
+	}
+}
+
+func TestFormatResult_LongSQLTruncated(t *testing.T) {
+	longSQL := strings.Repeat("SELECT * FROM very_long_table_name WHERE id = $1 AND ", 5)
+	result := &analysis.Result{
+		Endpoint:  "/orders",
+		HasIssues: true,
+		Issues: []analysis.Issue{
+			{
+				Pattern:  "N_PLUS_ONE_QUERY",
+				Severity: "critical",
+				Evidence: []string{"SQL: " + longSQL},
+			},
+		},
+	}
+	out := FormatResult(result)
+	if strings.Contains(out, longSQL) {
+		t.Error("Long SQL should be truncated")
+	}
+	if !strings.Contains(out, "...") {
+		t.Error("Truncated SQL should end with ...")
+	}
+}
+
+func TestFormatResult_PatternExplanationPresent(t *testing.T) {
+	result := &analysis.Result{
+		Endpoint:  "/orders",
+		HasIssues: true,
+		Issues: []analysis.Issue{
+			{
+				Pattern:  "N_PLUS_ONE_QUERY",
+				Severity: "critical",
+				Evidence: []string{"Query 150x"},
+			},
+		},
+	}
+	out := FormatResult(result)
+	if !strings.Contains(out, "repeatedly in a loop") {
+		t.Error("Expected pattern explanation in output")
+	}
+}
+
+func TestTruncateSQL_TruncatesLongString(t *testing.T) {
+	long := strings.Repeat("x", 200)
+	result := truncateSQL(long, 80)
+	if len(result) > 83 { // 80 + "..."
+		t.Errorf("Expected max 83 chars, got %d", len(result))
+	}
+	if !strings.HasSuffix(result, "...") {
+		t.Error("Expected ... suffix")
+	}
+}
+
+func TestTruncateSQL_LeavesShortStringUnchanged(t *testing.T) {
+	short := "SELECT * FROM orders"
+	result := truncateSQL(short, 80)
+	if result != short {
+		t.Errorf("Expected unchanged string, got %s", result)
+	}
+}
