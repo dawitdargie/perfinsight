@@ -3,6 +3,7 @@ package output
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dawitdargie/perfinsight/analysis"
 )
@@ -308,5 +309,41 @@ func TestFormatResult_N1FixMentionsBatch(t *testing.T) {
 	out := FormatResult(result)
 	if !strings.Contains(out, "batch") {
 		t.Error("Expected batch suggestion in N+1 output")
+	}
+}
+
+func TestFormatResult_SummaryShowsCorrectCounts(t *testing.T) {
+	result := &analysis.Result{
+		Endpoint:  "/orders",
+		HasIssues: true,
+		Issues: []analysis.Issue{
+			{Pattern: "N_PLUS_ONE_QUERY", Severity: "critical", Evidence: []string{"x"}},
+			{Pattern: "DATABASE_BOTTLENECK", Severity: "high", Evidence: []string{"x"}},
+		},
+	}
+	out := FormatResult(result)
+	if !strings.Contains(out, "2 issue(s)") {
+		t.Error("Expected issue count in summary")
+	}
+	if !strings.Contains(out, "1 critical") {
+		t.Error("Expected critical count")
+	}
+	if !strings.Contains(out, "1 high") {
+		t.Error("Expected high count")
+	}
+}
+
+func TestFormatResult_TimestampPresent(t *testing.T) {
+	result := &analysis.Result{
+		Endpoint:   "/orders",
+		HasIssues:  true,
+		AnalyzedAt: time.Now(),
+		Issues: []analysis.Issue{
+			{Pattern: "DATABASE_BOTTLENECK", Severity: "high", Evidence: []string{"x"}},
+		},
+	}
+	out := FormatResult(result)
+	if !strings.Contains(out, "Analyzed at:") {
+		t.Error("Expected timestamp in output")
 	}
 }

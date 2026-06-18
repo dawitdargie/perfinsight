@@ -143,8 +143,49 @@ func suggestionsForPattern(pattern string) []string {
 	}
 }
 
+func formatSummary(result *analysis.Result) string {
+	if !result.HasIssues {
+		return ""
+	}
+	critical := 0
+	high := 0
+	medium := 0
+	low := 0
+	for _, issue := range result.Issues {
+		switch issue.Severity {
+		case "critical":
+			critical++
+		case "high":
+			high++
+		case "medium":
+			medium++
+		case "low":
+			low++
+		}
+	}
+	var parts []string
+	if critical > 0 {
+		parts = append(parts, fmt.Sprintf("%d critical", critical))
+	}
+	if high > 0 {
+		parts = append(parts, fmt.Sprintf("%d high", high))
+	}
+	if medium > 0 {
+		parts = append(parts, fmt.Sprintf("%d medium", medium))
+	}
+	if low > 0 {
+		parts = append(parts, fmt.Sprintf("%d low", low))
+	}
+	summary := strings.Join(parts, ", ")
+	return fmt.Sprintf("%d issue(s) detected — %s\n", len(result.Issues), summary)
+}
+
 func formatFooter(result *analysis.Result) string {
-	return fmt.Sprintf("Analyzed at: %s\n", result.AnalyzedAt.Format("2006-01-02 15:04:05"))
+	var sb strings.Builder
+	sb.WriteString(strings.Repeat("═", 50) + "\n")
+	sb.WriteString(formatSummary(result))
+	sb.WriteString(fmt.Sprintf("Analyzed at: %s\n", result.AnalyzedAt.Format("2006-01-02 15:04:05")))
+	return sb.String()
 }
 
 // truncateSQL truncates a SQL string to maxLen characters, appending "..." if truncated.
