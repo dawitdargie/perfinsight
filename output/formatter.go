@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dawitdargie/perfinsight/analysis"
+	"github.com/dawitdargie/perfinsight/output/templates"
 )
 
 // FormatResult converts a Result into a complete CLI report string.
@@ -113,18 +114,33 @@ func formatChangeSection(issue analysis.Issue) string {
 	return sb.String()
 }
 
-// formatFixSection formats fix suggestions.
-// Fully implemented Day 25 using template system.
 func formatFixSection(issue analysis.Issue) string {
-	if len(issue.Suggestion) == 0 {
+	suggestions := suggestionsForPattern(issue.Pattern)
+	if len(suggestions) == 0 {
 		return ""
 	}
 	var sb strings.Builder
-	sb.WriteString("🛠 Suggestions:\n")
-	for _, s := range issue.Suggestion {
+	sb.WriteString("🛠 Suggested fixes:\n")
+	for _, s := range suggestions {
 		sb.WriteString(fmt.Sprintf(" - %s\n", s))
 	}
 	return sb.String()
+}
+
+// suggestionsForPattern maps a pattern identifier to the corresponding templates.
+func suggestionsForPattern(pattern string) []string {
+	switch pattern {
+	case "DATABASE_BOTTLENECK":
+		return templates.DBBottleneck()
+	case "N_PLUS_ONE_QUERY":
+		return templates.N1Query()
+	case "EXTERNAL_API_BOTTLENECK":
+		return templates.ExternalAPIBottleneck()
+	case "PERFORMANCE_REGRESSION":
+		return templates.PerformanceRegression()
+	default:
+		return []string{}
+	}
 }
 
 func formatFooter(result *analysis.Result) string {

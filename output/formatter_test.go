@@ -274,3 +274,39 @@ func TestTruncateSQL_LeavesShortStringUnchanged(t *testing.T) {
 		t.Errorf("Expected unchanged string, got %s", result)
 	}
 }
+
+func TestFormatResult_FixSectionPresent(t *testing.T) {
+	result := &analysis.Result{
+		Endpoint:  "/orders",
+		HasIssues: true,
+		Issues: []analysis.Issue{
+			{
+				Pattern:  "DATABASE_BOTTLENECK",
+				Severity: "high",
+				Evidence: []string{"DB slow"},
+			},
+		},
+	}
+	out := FormatResult(result)
+	if !strings.Contains(out, "Suggested fixes") {
+		t.Error("Expected fix section in output")
+	}
+}
+
+func TestFormatResult_N1FixMentionsBatch(t *testing.T) {
+	result := &analysis.Result{
+		Endpoint:  "/orders",
+		HasIssues: true,
+		Issues: []analysis.Issue{
+			{
+				Pattern:  "N_PLUS_ONE_QUERY",
+				Severity: "critical",
+				Evidence: []string{"Query 150x"},
+			},
+		},
+	}
+	out := FormatResult(result)
+	if !strings.Contains(out, "batch") {
+		t.Error("Expected batch suggestion in N+1 output")
+	}
+}
