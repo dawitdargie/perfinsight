@@ -95,19 +95,19 @@ func TestRuleDBBottleneck_EvidenceContainsPercentage(t *testing.T) {
 	}
 }
 
-func TestRuleN1Query_FiresWhenCountExceeds50(t *testing.T) {
+func TestRuleN1Query_FiresWhenDBDominatesAndImpact(t *testing.T) {
 	input := AnalysisInput{
 		Endpoint:     "/orders",
-		TotalLatency: 320,
-		DBTime:       280,
+		TotalLatency: 500,
+		DBTime:       450, // 90% DB ratio
 		DBQueries: []QueryStat{
 			{SQL: "SELECT id FROM orders", Count: 1, Time: 10},
-			{SQL: "SELECT * FROM items WHERE order_id = $1", Count: 55, Time: 270},
+			{SQL: "SELECT * FROM items WHERE order_id = $1", Count: 55, Time: 440},
 		},
 	}
 	issue := ruleN1Query(input)
 	if issue == nil {
-		t.Fatal("Expected issue, got nil")
+		t.Fatal("Expected N+1 issue, got nil")
 	}
 	if issue.Pattern != "N_PLUS_ONE_QUERY" {
 		t.Errorf("Expected N_PLUS_ONE_QUERY, got %s", issue.Pattern)
@@ -117,18 +117,33 @@ func TestRuleN1Query_FiresWhenCountExceeds50(t *testing.T) {
 	}
 }
 
-func TestRuleN1Query_DoesNotFireAtExactly50(t *testing.T) {
+func TestRuleN1Query_DoesNotFireWhenDBNotDominant(t *testing.T) {
 	input := AnalysisInput{
 		Endpoint:     "/orders",
-		TotalLatency: 100,
-		DBTime:       80,
+		TotalLatency: 500,
+		DBTime:       200, // 40% DB ratio — below 70% gate
 		DBQueries: []QueryStat{
-			{SQL: "SELECT * FROM items WHERE order_id = $1", Count: 50, Time: 80},
+			{SQL: "SELECT * FROM items", Count: 55, Time: 200},
 		},
 	}
 	issue := ruleN1Query(input)
 	if issue != nil {
-		t.Error("Expected nil at exactly 50 — threshold is strictly greater than 50")
+		t.Error("Expected no N+1 issue when DB is not dominant")
+	}
+}
+
+func TestRuleN1Query_DoesNotFireWhenLowImpact(t *testing.T) {
+	input := AnalysisInput{
+		Endpoint:     "/orders",
+		TotalLatency: 50,  // fast request
+		DBTime:       45,  // 90% DB ratio, but only 45ms
+		DBQueries: []QueryStat{
+			{SQL: "SELECT * FROM items", Count: 5, Time: 40},
+		},
+	}
+	issue := ruleN1Query(input)
+	if issue != nil {
+		t.Error("Expected no N+1 issue for fast request with low impact")
 	}
 }
 
@@ -136,10 +151,10 @@ func TestRuleN1Query_ReportsMostRepeatedQuery(t *testing.T) {
 	input := AnalysisInput{
 		Endpoint:     "/orders",
 		TotalLatency: 500,
-		DBTime:       480,
+		DBTime:       480, // 96% DB ratio
 		DBQueries: []QueryStat{
-			{SQL: "SELECT * FROM items WHERE order_id = $1", Count: 55, Time: 200},
-			{SQL: "SELECT * FROM tags WHERE item_id = $1", Count: 120, Time: 280},
+			{SQL: "SELECT * FROM items", Count: 5, Time: 60},
+			{SQL: "SELECT * FROM tags", Count: 120, Time: 420},
 		},
 	}
 	issue := ruleN1Query(input)

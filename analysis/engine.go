@@ -7,6 +7,10 @@ import (
 	_ "github.com/lib/pq"
 )
 
+// analysisWindow is the default lookback window for hot detection.
+// Traces older than this are not checked for active issues.
+const analysisWindow = "1 hour"
+
 // AnalysisService holds the database connection for the analysis engine.
 // It is completely separate from the collector's connection pool.
 type AnalysisService struct {
@@ -35,20 +39,22 @@ func (as *AnalysisService) Close() error {
 // buildInput queries the database and assembles an AnalysisInput for the given endpoint.
 // Returns (nil, nil) if no data exists for the endpoint.
 func (as *AnalysisService) buildInput(endpoint string) (*AnalysisInput, error) {
-	// Query 1 — Get latest trace for the endpoint
+	// Query 1 — Get the worst trace in the analysis window (highest DB ratio)
 	var totalLatency, dbTime, externalTime, internalTime int64
 	err := as.db.QueryRow(`
 		SELECT total_latency, db_time, external_time, internal_time
 		FROM traces
 		WHERE endpoint = $1
-		ORDER BY created_at DESC
+		AND created_at > NOW() - INTERVAL '`+analysisWindow+`'
+		AND total_latency > 0
+		ORDER BY (db_time::float / total_latency) DESC
 		LIMIT 1
 	`, endpoint).Scan(&totalLatency, &dbTime, &externalTime, &internalTime)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("query latest trace: %w", err)
+		return nil, fmt.Errorf("query worst trace: %w", err)
 	}
 
 	// Query 2 — Get baseline average from metrics table
@@ -60,25 +66,27 @@ func (as *AnalysisService) buildInput(endpoint string) (*AnalysisInput, error) {
 		return nil, fmt.Errorf("query baseline: %w", err)
 	}
 
-	// Query 3 — Get current 5-minute average
+	// Query 3 — Get current average within the analysis window
 	var currentAvg float64
 	err = as.db.QueryRow(`
 		SELECT COALESCE(AVG(total_latency), 0)
 		FROM traces
 		WHERE endpoint = $1
-		AND created_at > NOW() - INTERVAL '5 minutes'
+		AND created_at > NOW() - INTERVAL '`+analysisWindow+`'
 	`, endpoint).Scan(&currentAvg)
 	if err != nil {
 		return nil, fmt.Errorf("query current avg: %w", err)
 	}
 
-	// Query 4 — Get queries for the latest trace
+	// Query 4 — Get queries aggregated by SQL across the analysis window
 	rows, err := as.db.Query(`
-		SELECT q.sql_text, q.execution_count, q.total_time
+		SELECT q.sql_text, MAX(q.execution_count), COALESCE(AVG(q.total_time), 0)::bigint
 		FROM queries q
 		JOIN traces t ON q.trace_id = t.trace_id
 		WHERE t.endpoint = $1
-		ORDER BY t.created_at DESC
+		AND t.created_at > NOW() - INTERVAL '`+analysisWindow+`'
+		GROUP BY q.sql_text
+		ORDER BY MAX(q.execution_count) DESC
 		LIMIT 50
 	`, endpoint)
 	if err != nil {

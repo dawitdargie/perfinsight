@@ -51,31 +51,61 @@ func ruleDBBottleneck(input AnalysisInput) *Issue {
 	}
 }
 
-// ruleN1Query detects N+1 query patterns where many queries have the same SQL text.
+// ruleN1Query detects N+1 query patterns using evidence gates.
+// An N+1 is only reported when:
+//  1. A SQL statement is repeated more than once in a single request
+//  2. Database time dominates the request (>70% of latency)
+//  3. There is measurable performance impact (slow request OR significant DB time)
 func ruleN1Query(input AnalysisInput) *Issue {
-	if len(input.DBQueries) == 0 {
+	if len(input.DBQueries) == 0 || input.TotalLatency == 0 {
 		return nil
 	}
-	// Find the most repeated query
+
+	// Find the most repeated query (highest execution count per trace)
 	var topQuery *QueryStat
 	for i := range input.DBQueries {
-		if input.DBQueries[i].Count > 50 {
-			if topQuery == nil || input.DBQueries[i].Count > topQuery.Count {
-				topQuery = &input.DBQueries[i]
-			}
+		if input.DBQueries[i].Count < 2 {
+			continue // single execution is not a repeated pattern
+		}
+		if topQuery == nil || input.DBQueries[i].Count > topQuery.Count {
+			topQuery = &input.DBQueries[i]
 		}
 	}
 	if topQuery == nil {
-		return nil
+		return nil // no SQL was repeated more than once
 	}
+
+	dbRatio := float64(input.DBTime) / float64(input.TotalLatency)
+
+	// Evidence Gate 1: DB must dominate the request
+	if dbRatio <= 0.7 {
+		return nil // repeated query exists but DB is not the bottleneck
+	}
+
+	// Evidence Gate 2: There must be measurable performance impact
+	// Either the request is slow (>200ms) OR the repeated queries consumed significant DB time (>100ms)
+	if input.TotalLatency <= 200 && input.DBTime <= 100 {
+		return nil // repeated pattern exists but has no meaningful performance impact
+	}
+
+	// Severity derived from impact, not arbitrary count thresholds
+	var severity string
+	if input.TotalLatency > 200 && input.DBTime > 100 {
+		severity = "critical"
+	} else {
+		severity = "high"
+	}
+
 	return &Issue{
 		Pattern:    "N_PLUS_ONE_QUERY",
-		Severity:   "critical",
+		Severity:   severity,
 		Confidence: "high",
 		Evidence: []string{
 			fmt.Sprintf("Query executed %d times in a single request", topQuery.Count),
 			fmt.Sprintf("SQL: %s", topQuery.SQL),
 			fmt.Sprintf("Total time for this query: %dms", topQuery.Time),
+			fmt.Sprintf("DB time: %dms (%.0f%% of total request time)", input.DBTime, dbRatio*100),
+			fmt.Sprintf("Total request latency: %dms", input.TotalLatency),
 		},
 		Suggestion: []string{
 			"Use batch loading: replace looped queries with IN clause",
