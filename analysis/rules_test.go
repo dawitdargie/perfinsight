@@ -95,55 +95,72 @@ func TestRuleDBBottleneck_EvidenceContainsPercentage(t *testing.T) {
 	}
 }
 
-func TestRuleN1Query_FiresWhenDBDominatesAndImpact(t *testing.T) {
+func TestRuleN1Query_FiresAt10Count(t *testing.T) {
 	input := AnalysisInput{
 		Endpoint:     "/orders",
-		TotalLatency: 500,
-		DBTime:       450, // 90% DB ratio
+		TotalLatency: 50,
+		DBTime:       45,
 		DBQueries: []QueryStat{
-			{SQL: "SELECT id FROM orders", Count: 1, Time: 10},
-			{SQL: "SELECT * FROM items WHERE order_id = $1", Count: 55, Time: 440},
+			{SQL: "SELECT * FROM items", Count: 10, Time: 40},
 		},
 	}
 	issue := ruleN1Query(input)
 	if issue == nil {
-		t.Fatal("Expected N+1 issue, got nil")
+		t.Fatal("Expected issue at count 10")
 	}
-	if issue.Pattern != "N_PLUS_ONE_QUERY" {
-		t.Errorf("Expected N_PLUS_ONE_QUERY, got %s", issue.Pattern)
-	}
-	if issue.Severity != "critical" {
-		t.Errorf("Expected critical severity, got %s", issue.Severity)
+	if issue.Severity != "medium" {
+		t.Errorf("Expected medium, got %s", issue.Severity)
 	}
 }
 
-func TestRuleN1Query_DoesNotFireWhenDBNotDominant(t *testing.T) {
+func TestRuleN1Query_AssignsHighAt50Count(t *testing.T) {
+	input := AnalysisInput{
+		Endpoint:     "/orders",
+		TotalLatency: 50,
+		DBTime:       45,
+		DBQueries: []QueryStat{
+			{SQL: "SELECT * FROM items", Count: 50, Time: 40},
+		},
+	}
+	issue := ruleN1Query(input)
+	if issue == nil {
+		t.Fatal("Expected issue")
+	}
+	if issue.Severity != "high" {
+		t.Errorf("Expected high, got %s", issue.Severity)
+	}
+}
+
+func TestRuleN1Query_AssignsCriticalAt200Count(t *testing.T) {
+	input := AnalysisInput{
+		Endpoint:     "/orders",
+		TotalLatency: 50,
+		DBTime:       45,
+		DBQueries: []QueryStat{
+			{SQL: "SELECT * FROM items", Count: 200, Time: 40},
+		},
+	}
+	issue := ruleN1Query(input)
+	if issue == nil {
+		t.Fatal("Expected issue")
+	}
+	if issue.Severity != "critical" {
+		t.Errorf("Expected critical, got %s", issue.Severity)
+	}
+}
+
+func TestRuleN1Query_ReturnsNilBelow10(t *testing.T) {
 	input := AnalysisInput{
 		Endpoint:     "/orders",
 		TotalLatency: 500,
-		DBTime:       200, // 40% DB ratio — below 70% gate
+		DBTime:       400,
 		DBQueries: []QueryStat{
-			{SQL: "SELECT * FROM items", Count: 55, Time: 200},
+			{SQL: "SELECT * FROM items", Count: 9, Time: 300},
 		},
 	}
 	issue := ruleN1Query(input)
 	if issue != nil {
-		t.Error("Expected no N+1 issue when DB is not dominant")
-	}
-}
-
-func TestRuleN1Query_DoesNotFireWhenLowImpact(t *testing.T) {
-	input := AnalysisInput{
-		Endpoint:     "/orders",
-		TotalLatency: 50,  // fast request
-		DBTime:       45,  // 90% DB ratio, but only 45ms
-		DBQueries: []QueryStat{
-			{SQL: "SELECT * FROM items", Count: 5, Time: 40},
-		},
-	}
-	issue := ruleN1Query(input)
-	if issue != nil {
-		t.Error("Expected no N+1 issue for fast request with low impact")
+		t.Error("Expected nil below count 10")
 	}
 }
 
