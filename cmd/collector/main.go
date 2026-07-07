@@ -15,7 +15,12 @@ import (
 func main() {
 	srv := collector.NewServer()
 
-	storage, err := collector.NewStorage("host=localhost port=5433 user=user password=pass dbname=perfinsight sslmode=disable")
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		dbURL = "host=localhost port=5433 user=user password=pass dbname=perfinsight sslmode=disable"
+	}
+
+	storage, err := collector.NewStorage(dbURL)
 	if err != nil {
 		log.Fatalf("Storage init failed: %v", err)
 	}
