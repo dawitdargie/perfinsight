@@ -16,7 +16,7 @@ var tracedDB *sdk.TracedDB
 func main() {
 	sdk.Init("test-service", "http://localhost:9000")
 
-	db, err := sql.Open("postgres", "host=localhost port=5433 user=user password=pass dbname=perftest sslmode=disable")
+	db, err := sql.Open("postgres", "host=localhost port=5432 user=perfinsight password=perfinsight_secret dbname=perfinsight sslmode=disable")
 	if err != nil {
 		log.Fatal(err)
 	}

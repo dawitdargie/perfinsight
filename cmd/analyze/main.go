@@ -14,8 +14,12 @@ func main() {
 	endpoint := flag.String("endpoint", "all", "Endpoint to analyze, or 'all'")
 	flag.Parse()
 
-	svc, err := analysis.NewAnalysisService(
-		"host=localhost port=5433 user=user password=pass dbname=perfinsight sslmode=disable")
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		dbURL = "host=localhost user=user password=pass dbname=perfinsight sslmode=disable"
+	}
+
+	svc, err := analysis.NewAnalysisService(dbURL)
 	if err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}

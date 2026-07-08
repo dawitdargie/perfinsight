@@ -1,48 +1,66 @@
 #!/bin/bash
 set -e
 
-echo "=== PerfInsight Demo ==="
-echo ""
+echo "
+╔══════════════════════════════════════════════╗
+║ PerfInsight — Live Demo                     ║
+╚══════════════════════════════════════════════╝
+"
 
-# Clean state
-echo "[1/5] Cleaning database..."
-docker exec perfinsight-db psql -U user -d perfinsight \
-  -c "DELETE FROM queries; DELETE FROM traces; DELETE FROM metrics;" \
-  > /dev/null
-echo "  Done."
+# Stop any existing services
+echo "[Setup] Stopping any existing services..."
+docker-compose down 2>/dev/null || true
+pkill -f testapp 2>/dev/null || true
+sleep 1
 
-# Start collector
-echo "[2/5] Starting collector..."
-cd /c/Users/dawit/Desktop/perfinsight
-go run cmd/collector/main.go &
-COLLECTOR_PID=$!
-sleep 3
-curl -s http://localhost:9000/health > /dev/null && echo "  Collector healthy."
+# Start Docker services
+echo "[1/5] Starting collector + PostgreSQL via Docker..."
+docker-compose up --build -d
+
+# Wait for healthy status
+echo "[1/5] Waiting for services to be healthy..."
+for i in {1..30}; do
+  STATUS=$(docker inspect --format='{{.State.Health.Status}}' perfinsight-collector 2>/dev/null || echo "starting")
+  if [ "$STATUS" = "healthy" ]; then
+    echo " ✅ Collector is healthy"
+    break
+  fi
+  if [ "$i" = "30" ]; then
+    echo " ❌ Collector did not become healthy"
+    docker-compose logs collector
+    exit 1
+  fi
+  sleep 2
+done
 
 # Start testapp
-echo "[3/5] Starting test application..."
+echo "[2/5] Starting test application..."
 go run testapp/main.go &
 TESTAPP_PID=$!
-sleep 3
-echo "  Test app running."
+sleep 2
+echo " ✅ Test app running on :8080"
 
 # Generate traffic
-echo "[4/5] Generating traffic..."
-for i in {1..10}; do
-  curl -s http://localhost:8080/orders > /dev/null
-done
-for i in {1..10}; do
-  curl -s http://localhost:8080/fast > /dev/null
-done
-echo "  Sent 20 requests. Waiting for flush..."
+echo "[3/5] Generating traffic with N+1 query pattern..."
+for i in {1..10}; do curl -s http://localhost:8080/orders > /dev/null; done
+echo "   Sent 10 requests to /orders (N+1 pattern)..."
+for i in {1..10}; do curl -s http://localhost:8080/fast > /dev/null; done
+echo "   Sent 10 requests to /fast (clean endpoint)..."
+echo "   Waiting for telemetry flush..."
 sleep 6
 
 # Run analysis
-echo "[5/5] Running analysis..."
-echo ""
+echo "[4/5] Running performance analysis..."
+export DATABASE_URL="host=localhost user=perfinsight password=perfinsight_secret dbname=perfinsight sslmode=disable"
 go run cmd/analyze/main.go -endpoint all
 
 # Cleanup
-kill $TESTAPP_PID $COLLECTOR_PID 2>/dev/null || true
-echo ""
-echo "=== Demo Complete ==="
+echo "[5/5] Cleaning up..."
+kill $TESTAPP_PID 2>/dev/null || true
+docker-compose down
+
+echo "
+╔══════════════════════════════════════════════╗
+║ Demo Complete                               ✅║
+╚══════════════════════════════════════════════╝
+"
