@@ -46,6 +46,12 @@ func patternTitle(pattern string) string {
 		return "External API Bottleneck"
 	case "PERFORMANCE_REGRESSION":
 		return "Performance Regression"
+	case "HIGH_ERROR_RATE":
+		return "High Error Rate"
+	case "HIGH_LATENCY":
+		return "High Latency"
+	case "HIGH_INTERNAL_PROCESSING":
+		return "High Internal Processing Time"
 	default:
 		return pattern
 	}
@@ -62,6 +68,12 @@ func patternExplanation(pattern string) string {
 		return "A third-party API call is consuming the majority of this request's time."
 	case "PERFORMANCE_REGRESSION":
 		return "This endpoint has become significantly slower compared to its historical baseline."
+	case "HIGH_ERROR_RATE":
+		return "A significant percentage of requests are resulting in errors."
+	case "HIGH_LATENCY":
+		return "This endpoint is taking too long to respond, impacting user experience."
+	case "HIGH_INTERNAL_PROCESSING":
+		return "Most of the request time is spent in application logic, not database or external calls."
 	default:
 		return ""
 	}

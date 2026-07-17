@@ -13,6 +13,9 @@ type AnalysisInput struct {
 	BaselineAvg  float64
 	CurrentAvg   float64
 	DBQueries    []QueryStat
+	ErrorCount   int
+	RequestCount int
+	ErrorRate    float64
 }
 
 // QueryStat represents an aggregated database query for analysis.

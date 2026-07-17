@@ -10,7 +10,7 @@ import (
 )
 
 func TestWorkerPool_100ConcurrentBatches(t *testing.T) {
-	s, err := NewStorage("host=localhost port=5433 user=user password=pass dbname=perfinsight sslmode=disable")
+	s, err := NewStorage("host=localhost port=5432 user=user password=pass dbname=perfinsight sslmode=disable")
 	if err != nil {
 		t.Skipf("PostgreSQL not available: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestValidation_EntireBatchInvalidReturns400(t *testing.T) {
 }
 
 func TestPipeline_NormalizerRunsBeforeStorage(t *testing.T) {
-	s, err := NewStorage("host=localhost port=5433 user=user password=pass dbname=perfinsight sslmode=disable")
+	s, err := NewStorage("host=localhost port=5432 user=user password=pass dbname=perfinsight sslmode=disable")
 	if err != nil {
 		t.Skipf("PostgreSQL not available: %v", err)
 	}

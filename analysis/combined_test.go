@@ -47,7 +47,7 @@ func TestEvaluateRules_CleanInputProducesZeroIssues(t *testing.T) {
 		TotalLatency: 5,
 		DBTime:       2, // 40% — below 70%
 		ExternalTime: 0,
-		InternalTime: 3,
+		InternalTime: 2, // 40% — below 50%
 		DBQueries:    []QueryStat{},
 		BaselineAvg:  4,
 		CurrentAvg:   5, // 1.25x — below 2x

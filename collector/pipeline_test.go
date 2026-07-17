@@ -10,7 +10,7 @@ import (
 
 func testStorage(t *testing.T) *Storage {
 	t.Helper()
-	s, err := NewStorage("host=localhost port=5433 user=user password=pass dbname=perfinsight sslmode=disable")
+	s, err := NewStorage("host=localhost port=5432 user=user password=pass dbname=perfinsight sslmode=disable")
 	if err != nil {
 		t.Skipf("Storage init failed: %v", err)
 	}

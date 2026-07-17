@@ -7,7 +7,7 @@ import (
 func testService(t *testing.T) *AnalysisService {
 	t.Helper()
 	svc, err := NewAnalysisService(
-		"host=localhost port=5433 user=user password=pass dbname=perfinsight sslmode=disable")
+		"host=localhost port=5432 user=user password=pass dbname=perfinsight sslmode=disable")
 	if err != nil {
 		t.Skipf("PostgreSQL not available: %v", err)
 	}

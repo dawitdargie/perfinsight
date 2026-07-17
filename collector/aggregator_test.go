@@ -5,19 +5,33 @@ import (
 	"testing"
 )
 
-func TestUpdateBaseline_SkipsZero(t *testing.T) {
+// testAggregatorDB opens a connection to PostgreSQL and skips the test if unavailable.
+func testAggregatorDB(t *testing.T) *sql.DB {
+	t.Helper()
 	db, err := sql.Open("postgres",
-		"host=localhost port=5433 user=user password=pass dbname=perfinsight sslmode=disable")
+		"host=localhost port=5432 user=user password=pass dbname=perfinsight sslmode=disable")
 	if err != nil {
 		t.Skipf("PostgreSQL not available: %v", err)
 	}
-	defer db.Close()
+	if err := db.Ping(); err != nil {
+		db.Close()
+		t.Skipf("PostgreSQL not reachable: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+	return db
+}
+
+func TestUpdateBaseline_SkipsZero(t *testing.T) {
+	db := testAggregatorDB(t)
 	s := &Storage{db: db}
 
 	// First set a known baseline
-	db.Exec(`INSERT INTO metrics (endpoint, request_count, avg_latency, baseline_avg)
+	_, err := db.Exec(`INSERT INTO metrics (endpoint, request_count, avg_latency, baseline_avg)
 		VALUES ('/test-baseline', 1, 100, 100)
 		ON CONFLICT (endpoint) DO UPDATE SET baseline_avg = 100`)
+	if err != nil {
+		t.Fatalf("Setup INSERT failed: %v", err)
+	}
 
 	// Try to update with zero — should be skipped
 	err = s.UpdateBaseline("/test-baseline", 0)
@@ -36,12 +50,7 @@ func TestUpdateBaseline_SkipsZero(t *testing.T) {
 }
 
 func TestGetHourlyAverage_ReturnsZeroWithNoData(t *testing.T) {
-	db, err := sql.Open("postgres",
-		"host=localhost port=5433 user=user password=pass dbname=perfinsight sslmode=disable")
-	if err != nil {
-		t.Skipf("PostgreSQL not available: %v", err)
-	}
-	defer db.Close()
+	db := testAggregatorDB(t)
 	s := &Storage{db: db}
 
 	avg, err := s.GetHourlyAverage("/endpoint-that-does-not-exist")

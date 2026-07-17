@@ -17,7 +17,7 @@ func main() {
 
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "host=localhost port=5433 user=user password=pass dbname=perfinsight sslmode=disable"
+		dbURL = "host=localhost port=5432 user=user password=pass dbname=perfinsight sslmode=disable"
 	}
 
 	storage, err := collector.NewStorage(dbURL)

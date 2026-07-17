@@ -20,6 +20,15 @@ func EvaluateRules(input AnalysisInput) []Issue {
 	if issue := rulePerformanceRegression(input); issue != nil {
 		issues = append(issues, *issue)
 	}
+	if issue := ruleHighErrorRate(input); issue != nil {
+		issues = append(issues, *issue)
+	}
+	if issue := ruleHighInternalProcessing(input); issue != nil {
+		issues = append(issues, *issue)
+	}
+	if issue := ruleHighLatency(input); issue != nil {
+		issues = append(issues, *issue)
+	}
 
 	return issues
 }
@@ -47,6 +56,104 @@ func ruleDBBottleneck(input AnalysisInput) *Issue {
 			"Reduce SELECT * — select only required columns",
 			"Consider caching repeated read queries",
 			"Profile slow queries using EXPLAIN ANALYZE",
+		},
+	}
+}
+
+// ruleHighErrorRate detects endpoints with elevated error rates.
+func ruleHighErrorRate(input AnalysisInput) *Issue {
+	if input.RequestCount == 0 {
+		return nil
+	}
+	if input.ErrorRate <= 5.0 {
+		return nil
+	}
+	severity := "high"
+	if input.ErrorRate > 20 {
+		severity = "critical"
+	}
+	return &Issue{
+		Pattern:    "HIGH_ERROR_RATE",
+		Severity:   severity,
+		Confidence: "high",
+		Evidence: []string{
+			fmt.Sprintf("Error rate: %.1f%% (%d errors out of %d requests)", input.ErrorRate, input.ErrorCount, input.RequestCount),
+			fmt.Sprintf("Endpoint: %s", input.Endpoint),
+		},
+		Suggestion: []string{
+			"Check for recent code changes or deployments that may have introduced bugs",
+			"Review application logs for stack traces and error messages",
+			"Verify upstream dependencies are healthy",
+			"Add more granular error tracking to identify specific failure modes",
+		},
+	}
+}
+
+// ruleHighInternalProcessing detects when application logic dominates request time.
+func ruleHighInternalProcessing(input AnalysisInput) *Issue {
+	if input.TotalLatency == 0 {
+		return nil
+	}
+	internalRatio := float64(input.InternalTime) / float64(input.TotalLatency)
+	if internalRatio <= 0.5 {
+		return nil
+	}
+	severity := "medium"
+	if internalRatio > 0.7 {
+		severity = "high"
+	}
+	if internalRatio > 0.85 {
+		severity = "critical"
+	}
+	return &Issue{
+		Pattern:    "HIGH_INTERNAL_PROCESSING",
+		Severity:   severity,
+		Confidence: "medium",
+		Evidence: []string{
+			fmt.Sprintf("Internal processing time: %dms (%.0f%% of total request time)", input.InternalTime, internalRatio*100),
+			fmt.Sprintf("Total request latency: %dms", input.TotalLatency),
+			fmt.Sprintf("DB time: %dms, External time: %dms", input.DBTime, input.ExternalTime),
+		},
+		Suggestion: []string{
+			"Profile CPU usage during request processing",
+			"Review serialization/deserialization logic for efficiency",
+			"Check for inefficient loops or data transformations",
+			"Consider using worker pools for CPU-intensive operations",
+		},
+	}
+}
+
+// ruleHighLatency detects endpoints with high absolute latency.
+// Uses both a minimum threshold and baseline comparison to avoid false positives.
+func ruleHighLatency(input AnalysisInput) *Issue {
+	if input.TotalLatency < 500 {
+		return nil
+	}
+	// If baseline exists, require latency > 1.5x baseline
+	if input.BaselineAvg > 0 {
+		ratio := float64(input.TotalLatency) / input.BaselineAvg
+		if ratio <= 1.5 {
+			return nil
+		}
+	}
+	severity := "medium"
+	if input.TotalLatency >= 2000 {
+		severity = "high"
+	}
+	return &Issue{
+		Pattern:    "HIGH_LATENCY",
+		Severity:   severity,
+		Confidence: "high",
+		Evidence: []string{
+			fmt.Sprintf("Total latency: %dms", input.TotalLatency),
+			fmt.Sprintf("Endpoint: %s", input.Endpoint),
+			fmt.Sprintf("DB time: %dms, Internal time: %dms", input.DBTime, input.InternalTime),
+		},
+		Suggestion: []string{
+			"Consider adding caching for frequently accessed data",
+			"Evaluate if synchronous processing can be moved to async/background jobs",
+			"Review endpoint logic for unnecessary computation or blocking calls",
+			"Consider pagination or streaming for large payloads",
 		},
 	}
 }

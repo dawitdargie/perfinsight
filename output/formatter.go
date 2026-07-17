@@ -138,6 +138,12 @@ func suggestionsForPattern(pattern string) []string {
 		return templates.ExternalAPIBottleneck()
 	case "PERFORMANCE_REGRESSION":
 		return templates.PerformanceRegression()
+	case "HIGH_ERROR_RATE":
+		return templates.HighErrorRate()
+	case "HIGH_LATENCY":
+		return templates.HighLatency()
+	case "HIGH_INTERNAL_PROCESSING":
+		return templates.HighInternalProcessing()
 	default:
 		return []string{}
 	}

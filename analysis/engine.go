@@ -78,7 +78,17 @@ func (as *AnalysisService) buildInput(endpoint string) (*AnalysisInput, error) {
 		return nil, fmt.Errorf("query current avg: %w", err)
 	}
 
-	// Query 4 — Get queries aggregated by SQL across the analysis window
+	// Query 4 — Get error rate from metrics table
+	var errorCount, requestCount int
+	err = as.db.QueryRow(`
+		SELECT COALESCE(error_count, 0), COALESCE(request_count, 0)
+		FROM metrics WHERE endpoint = $1
+	`, endpoint).Scan(&errorCount, &requestCount)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("query metrics: %w", err)
+	}
+
+	// Query 5 — Get queries aggregated by SQL across the analysis window
 	rows, err := as.db.Query(`
 		SELECT q.sql_text, MAX(q.execution_count), COALESCE(AVG(q.total_time), 0)::bigint
 		FROM queries q
@@ -115,6 +125,9 @@ func (as *AnalysisService) buildInput(endpoint string) (*AnalysisInput, error) {
 		BaselineAvg:  baselineAvg,
 		CurrentAvg:   currentAvg,
 		DBQueries:    dbQueries,
+		ErrorCount:   errorCount,
+		RequestCount: requestCount,
+		ErrorRate:    computeErrorRate(errorCount, requestCount),
 	}, nil
 }
 
@@ -130,6 +143,14 @@ func (as *AnalysisService) AnalyzeEndpoint(endpoint string) (*Result, error) {
 	issues := EvaluateRules(*input)
 	result := BuildResult(*input, issues)
 	return result, nil
+}
+
+// computeErrorRate returns the error rate as a percentage.
+func computeErrorRate(errors, requests int) float64 {
+	if requests == 0 {
+		return 0
+	}
+	return float64(errors) / float64(requests) * 100
 }
 
 // AllEndpoints returns all known endpoints from the metrics table.

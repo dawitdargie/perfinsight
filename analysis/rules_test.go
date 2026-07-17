@@ -332,3 +332,214 @@ func TestRuleRegression_EvidenceContainsMultiplier(t *testing.T) {
 		t.Error("Evidence should contain 3.2x multiplier")
 	}
 }
+
+func TestRuleHighErrorRate_FiresAbove5Percent(t *testing.T) {
+	input := AnalysisInput{
+		Endpoint:     "/orders",
+		RequestCount: 1000,
+		ErrorCount:   51,
+		ErrorRate:    5.1,
+	}
+	issue := ruleHighErrorRate(input)
+	if issue == nil {
+		t.Fatal("Expected issue, got nil")
+	}
+	if issue.Pattern != "HIGH_ERROR_RATE" {
+		t.Errorf("Expected HIGH_ERROR_RATE, got %s", issue.Pattern)
+	}
+	if issue.Severity != "high" {
+		t.Errorf("Expected severity high, got %s", issue.Severity)
+	}
+}
+
+func TestRuleHighErrorRate_DoesNotFireAtExactly5Percent(t *testing.T) {
+	input := AnalysisInput{
+		RequestCount: 1000,
+		ErrorCount:   50,
+		ErrorRate:    5.0,
+	}
+	issue := ruleHighErrorRate(input)
+	if issue != nil {
+		t.Error("Expected nil at exactly 5.0%, got issue")
+	}
+}
+
+func TestRuleHighErrorRate_DoesNotFireBelow5Percent(t *testing.T) {
+	input := AnalysisInput{
+		RequestCount: 1000,
+		ErrorCount:   49,
+		ErrorRate:    4.9,
+	}
+	issue := ruleHighErrorRate(input)
+	if issue != nil {
+		t.Error("Expected nil at 4.9%, got issue")
+	}
+}
+
+func TestRuleHighErrorRate_CriticalAbove20Percent(t *testing.T) {
+	input := AnalysisInput{
+		RequestCount: 100,
+		ErrorCount:   21,
+		ErrorRate:    21.0,
+	}
+	issue := ruleHighErrorRate(input)
+	if issue == nil {
+		t.Fatal("Expected issue, got nil")
+	}
+	if issue.Severity != "critical" {
+		t.Errorf("Expected severity critical, got %s", issue.Severity)
+	}
+}
+
+func TestRuleHighErrorRate_HandlesZeroRequests(t *testing.T) {
+	input := AnalysisInput{
+		RequestCount: 0,
+		ErrorCount:   0,
+		ErrorRate:    0,
+	}
+	issue := ruleHighErrorRate(input)
+	if issue != nil {
+		t.Error("Expected nil for zero requests")
+	}
+}
+
+func TestRuleHighInternalProcessing_FiresAbove50Percent(t *testing.T) {
+	input := AnalysisInput{
+		TotalLatency: 100,
+		InternalTime: 60,
+	}
+	issue := ruleHighInternalProcessing(input)
+	if issue == nil {
+		t.Fatal("Expected issue, got nil")
+	}
+	if issue.Pattern != "HIGH_INTERNAL_PROCESSING" {
+		t.Errorf("Expected HIGH_INTERNAL_PROCESSING, got %s", issue.Pattern)
+	}
+	if issue.Severity != "medium" {
+		t.Errorf("Expected severity medium, got %s", issue.Severity)
+	}
+}
+
+func TestRuleHighInternalProcessing_DoesNotFireAtExactly50Percent(t *testing.T) {
+	input := AnalysisInput{
+		TotalLatency: 100,
+		InternalTime: 50,
+	}
+	issue := ruleHighInternalProcessing(input)
+	if issue != nil {
+		t.Error("Expected nil at exactly 50%")
+	}
+}
+
+func TestRuleHighInternalProcessing_DoesNotFireBelow50Percent(t *testing.T) {
+	input := AnalysisInput{
+		TotalLatency: 100,
+		InternalTime: 49,
+	}
+	issue := ruleHighInternalProcessing(input)
+	if issue != nil {
+		t.Error("Expected nil at 49%")
+	}
+}
+
+func TestRuleHighInternalProcessing_DynamicSeverity(t *testing.T) {
+	tests := []struct {
+		name     string
+		internal int64
+		wantSev  string
+	}{
+		{"medium_51percent", 51, "medium"},
+		{"high_71percent", 71, "high"},
+		{"critical_86percent", 86, "critical"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := AnalysisInput{
+				TotalLatency: 100,
+				InternalTime: tt.internal,
+			}
+			issue := ruleHighInternalProcessing(input)
+			if issue == nil {
+				t.Fatalf("Expected issue for %s", tt.name)
+			}
+			if issue.Severity != tt.wantSev {
+				t.Errorf("severity = %q, want %q", issue.Severity, tt.wantSev)
+			}
+		})
+	}
+}
+
+func TestRuleHighInternalProcessing_HandlesZeroLatency(t *testing.T) {
+	input := AnalysisInput{
+		TotalLatency: 0,
+		InternalTime: 0,
+	}
+	issue := ruleHighInternalProcessing(input)
+	if issue != nil {
+		t.Error("Expected nil for zero latency")
+	}
+}
+
+func TestRuleHighLatency_FiresAbove500ms(t *testing.T) {
+	input := AnalysisInput{
+		TotalLatency: 600,
+	}
+	issue := ruleHighLatency(input)
+	if issue == nil {
+		t.Fatal("Expected issue, got nil")
+	}
+	if issue.Pattern != "HIGH_LATENCY" {
+		t.Errorf("Expected HIGH_LATENCY, got %s", issue.Pattern)
+	}
+	if issue.Severity != "medium" {
+		t.Errorf("Expected severity medium, got %s", issue.Severity)
+	}
+}
+
+func TestRuleHighLatency_DoesNotFireBelow500ms(t *testing.T) {
+	input := AnalysisInput{
+		TotalLatency: 400,
+	}
+	issue := ruleHighLatency(input)
+	if issue != nil {
+		t.Error("Expected nil below 500ms")
+	}
+}
+
+func TestRuleHighLatency_DoesNotFireBelow1_5xBaseline(t *testing.T) {
+	input := AnalysisInput{
+		TotalLatency: 550,
+		BaselineAvg:  400,
+	}
+	issue := ruleHighLatency(input)
+	if issue != nil {
+		t.Error("Expected nil at 1.375x baseline")
+	}
+}
+
+func TestRuleHighLatency_FiresAbove1_5xBaseline(t *testing.T) {
+	input := AnalysisInput{
+		TotalLatency: 700,
+		BaselineAvg:  400,
+	}
+	issue := ruleHighLatency(input)
+	if issue == nil {
+		t.Fatal("Expected issue at 1.75x baseline, got nil")
+	}
+	if issue.Severity != "medium" {
+		t.Errorf("Expected severity medium, got %s", issue.Severity)
+	}
+}
+
+func TestRuleHighLatency_HighAbove2000ms(t *testing.T) {
+	input := AnalysisInput{
+		TotalLatency: 2000,
+	}
+	issue := ruleHighLatency(input)
+	if issue == nil {
+		t.Fatal("Expected issue, got nil")
+	}
+	if issue.Severity != "high" {
+		t.Errorf("Expected severity high, got %s", issue.Severity)
+	}
+}
