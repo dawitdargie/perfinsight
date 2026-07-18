@@ -36,8 +36,12 @@ func main() {
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		log.Printf("Collector running on :9000")
-		if err := srv.Start(":9000"); err != http.ErrServerClosed {
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "9000"
+		}
+		log.Printf("Collector running on :%s", port)
+		if err := srv.Start(":" + port); err != http.ErrServerClosed {
 			log.Fatalf("Server error: %v", err)
 		}
 	}()
