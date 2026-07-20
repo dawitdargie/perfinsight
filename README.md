@@ -76,9 +76,16 @@ Output:
 
 ## Local Demo (requires Docker)
 
+only 2 steps(two commands)
+
+1. Clone the repository:
 ```bash
 git clone https://github.com/dawitdargie/perfinsight
 cd perfinsight
+```
+2. Run the demo:
+
+```
 ./scripts/demo.sh
 ```
 
