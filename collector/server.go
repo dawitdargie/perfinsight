@@ -7,17 +7,21 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/dawitdargie/perfinsight/analysis"
+	"github.com/dawitdargie/perfinsight/output"
 	"github.com/dawitdargie/perfinsight/sdk"
 )
 
 type Server struct {
 	traceBuffer chan []sdk.Trace
 	httpServer  *http.Server
+	dbURL       string
 }
 
-func NewServer() *Server {
+func NewServer(dbURL string) *Server {
 	return &Server{
 		traceBuffer: make(chan []sdk.Trace, 500),
+		dbURL:       dbURL,
 	}
 }
 
@@ -63,10 +67,50 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "OK")
 }
 
+func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
+	endpoint := r.URL.Query().Get("endpoint")
+	if endpoint == "" {
+		endpoint = "all"
+	}
+
+	svc, err := analysis.NewAnalysisService(s.dbURL)
+	if err != nil {
+		http.Error(w, "analysis service error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer svc.Close()
+
+	var endpoints []string
+	if endpoint == "all" {
+		endpoints, err = svc.AllEndpoints()
+		if err != nil {
+			http.Error(w, "list endpoints error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(endpoints) == 0 {
+			fmt.Fprintln(w, "No endpoints found. Send some traffic first.")
+			return
+		}
+	} else {
+		endpoints = []string{endpoint}
+	}
+
+	for _, ep := range endpoints {
+		result, err := svc.AnalyzeEndpoint(ep)
+		if err != nil {
+			fmt.Fprintf(w, "Error analyzing %s: %v\n\n", ep, err)
+			continue
+		}
+		fmt.Fprint(w, output.FormatResult(result))
+		fmt.Fprintln(w)
+	}
+}
+
 func (s *Server) Start(addr string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ingest-trace", s.handleIngestTrace)
 	mux.HandleFunc("/health", s.handleHealth)
+	mux.HandleFunc("/analyze", s.handleAnalyze)
 
 	s.httpServer = &http.Server{
 		Addr:    addr,

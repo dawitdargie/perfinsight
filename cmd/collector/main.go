@@ -13,12 +13,12 @@ import (
 )
 
 func main() {
-	srv := collector.NewServer()
-
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		dbURL = "host=localhost port=5432 user=user password=pass dbname=perfinsight sslmode=disable"
 	}
+
+	srv := collector.NewServer(dbURL)
 
 	storage, err := collector.NewStorage(dbURL)
 	if err != nil {
