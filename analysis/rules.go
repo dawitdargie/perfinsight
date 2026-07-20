@@ -91,7 +91,7 @@ func ruleHighErrorRate(input AnalysisInput) *Issue {
 
 // ruleHighInternalProcessing detects when application logic dominates request time.
 func ruleHighInternalProcessing(input AnalysisInput) *Issue {
-	if input.TotalLatency == 0 {
+	if input.TotalLatency < 100 {
 		return nil
 	}
 	internalRatio := float64(input.InternalTime) / float64(input.TotalLatency)
