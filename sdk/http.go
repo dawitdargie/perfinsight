@@ -52,11 +52,13 @@ func HTTPMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			last.Latency = latency
 			last.StatusCode = rw.statusCode
 			SetServiceName(last, currentServiceName)
+
 			if err := FinalizeTrace(last); err != nil {
 				traces = traces[:len(traces)-1]
 				mu.Unlock()
 				return
 			}
+
 			completedTrace = *last
 			validTrace = true
 		}
@@ -66,4 +68,12 @@ func HTTPMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			globalExporter.Enqueue(completedTrace)
 		}
 	}
+}
+
+// HTTPMiddlewareHandler wraps any http.Handler.
+// This allows users to instrument the entire application/router.
+func HTTPMiddlewareHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		HTTPMiddleware(next.ServeHTTP)(w, r)
+	})
 }

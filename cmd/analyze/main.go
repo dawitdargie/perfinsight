@@ -41,10 +41,15 @@ func main() {
 
 	for _, ep := range endpoints {
 		result, err := svc.AnalyzeEndpoint(ep)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error analyzing %s: %v\n", ep, err)
-			continue
-		}
-		fmt.Println(output.FormatResult(result))
+if err != nil {
+    fmt.Fprintf(os.Stderr, "Error analyzing %s: %v\n", ep, err)
+    continue
+}
+
+if result == nil {
+    continue
+}
+
+fmt.Println(output.FormatResult(result))
 	}
 }

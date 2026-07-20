@@ -5,19 +5,42 @@ Go runtime performance intelligence platform. Instrument your Go application wit
 ## Quick Start
 
 ### 1. Instrument your Go app
-```
+
+Install the SDK:
+
+```bash
 go get github.com/dawitdargie/perfinsight
 ```
-
+Import the package:
 ```go
 import "github.com/dawitdargie/perfinsight/sdk"
+```
 
-func main() {
-    sdk.Init("my-service", "https://perfinsight-collector.onrender.com")
-    tracedDB := sdk.WrapDB(db) //For database instrumentation, Use tracedDB instead of db
-    handler = sdk.HTTPMiddleware(yourActualHandler)// Instrument your HTTP handler to automatically capture performance telemetry.
-    // ... your code unchanged
-}
+Initialize the SDK:
+```go
+sdk.Init("my-service", "https://perfinsight-collector.onrender.com")
+```
+Wrap your database connection:
+```go
+tracedDB := sdk.WrapDB(db)//Use tracedDB instead of db for database operations to enable query performance tracking.
+```
+
+Wrap your HTTP handler:
+
+```go
+wrappedHandler := sdk.HTTPMiddlewareHandler(yourHandler)
+
+http.ListenAndServe(":YOUR_PORT", wrappedHandler)
+```
+
+PerfInsight will automatically capture telemetry for all routes handled by your application.
+
+---
+
+Alternatively, you can instrument individual routes manually:
+
+```go
+http.HandleFunc("/your-route", sdk.HTTPMiddleware(yourHandler))
 ```
 
 ### 2. Run your app
@@ -25,6 +48,11 @@ func main() {
 ```bash
 go run main.go
 ```
+Generate traffic by sending requests to the endpoints you want to analyze:
+```bash
+curl http://<your-app-url>/<your-endpoint>
+```
+For more reliable analysis results, send multiple requests to generate enough telemetry:
 
 The SDK silently collects traces and sends them to the collector every 5 seconds.
 

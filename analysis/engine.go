@@ -39,7 +39,7 @@ func (as *AnalysisService) Close() error {
 // buildInput queries the database and assembles an AnalysisInput for the given endpoint.
 // Returns (nil, nil) if no data exists for the endpoint.
 func (as *AnalysisService) buildInput(endpoint string) (*AnalysisInput, error) {
-	// Query 1 — Get the worst trace in the analysis window (highest DB ratio)
+	// Query 1 — Get the most recent trace in the analysis window
 	var totalLatency, dbTime, externalTime, internalTime int64
 	var serviceName string
 	err := as.db.QueryRow(`
@@ -48,8 +48,8 @@ func (as *AnalysisService) buildInput(endpoint string) (*AnalysisInput, error) {
 		WHERE endpoint = $1
 		AND created_at > NOW() - INTERVAL '`+analysisWindow+`'
 		AND total_latency > 0
-		ORDER BY (db_time::float / total_latency) DESC
-		LIMIT 1
+		ORDER BY created_at DESC
+        LIMIT 1
 	`, endpoint).Scan(&totalLatency, &dbTime, &externalTime, &internalTime, &serviceName)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -157,12 +157,19 @@ func computeErrorRate(errors, requests int) float64 {
 
 // AllEndpoints returns all known endpoints from the metrics table.
 func (as *AnalysisService) AllEndpoints() ([]string, error) {
-	rows, err := as.db.Query(`SELECT endpoint FROM metrics ORDER BY endpoint`)
+	rows, err := as.db.Query(`
+		SELECT DISTINCT endpoint
+		FROM traces
+		WHERE created_at > NOW() - INTERVAL '1 hour'
+		ORDER BY endpoint
+	`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+
 	var endpoints []string
+
 	for rows.Next() {
 		var ep string
 		if err := rows.Scan(&ep); err != nil {
@@ -170,5 +177,6 @@ func (as *AnalysisService) AllEndpoints() ([]string, error) {
 		}
 		endpoints = append(endpoints, ep)
 	}
+
 	return endpoints, nil
 }

@@ -12,9 +12,6 @@ import (
 // FormatResult converts a Result into a complete CLI report string.
 // This is the only exported function in the output package.
 func FormatResult(result *analysis.Result) string {
-	if result == nil {
-		return "No analysis result available.\n"
-	}
 	if !result.HasIssues {
 		return fmt.Sprintf("✓ No performance issues detected for %s\n", result.Endpoint)
 	}

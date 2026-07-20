@@ -46,8 +46,22 @@ done
 echo "[2/5] Starting test application..."
 go run testapp/main.go &
 TESTAPP_PID=$!
-sleep 2
-echo " ✅ Test app running on :8080"
+
+# Wait until the server is actually accepting requests
+for i in {1..30}; do
+    if curl -fs http://localhost:8080/fast >/dev/null 2>&1; then
+        echo " ✅ Test app running on :8080"
+        break
+    fi
+
+    if [ "$i" = "30" ]; then
+        echo " ❌ Test application did not start"
+        kill "$TESTAPP_PID" 2>/dev/null || true
+        exit 1
+    fi
+
+    sleep 1
+done
 
 # Generate traffic
 echo "[3/5] Generating traffic with N+1 query pattern..."
