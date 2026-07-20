@@ -16,7 +16,7 @@ func FormatResult(result *analysis.Result) string {
 		return "No analysis result available.\n"
 	}
 	if !result.HasIssues {
-		return fmt.Sprintf("✅ No performance issues detected for %s\n", result.Endpoint)
+		return fmt.Sprintf("✓ No performance issues detected for %s\n", result.Endpoint)
 	}
 
 	var sb strings.Builder
@@ -37,7 +37,7 @@ func FormatResult(result *analysis.Result) string {
 
 func formatHeader(result *analysis.Result) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("⚠️ Performance Analysis: %s\n", result.Endpoint))
+	sb.WriteString(fmt.Sprintf("⚠ Performance Analysis: Endpoint: %s [service: %s]\n", result.Endpoint, result.ServiceName))
 	sb.WriteString(strings.Repeat("═", 50) + "\n")
 	sb.WriteString(fmt.Sprintf(" Total latency: %dms\n", result.Latency))
 	sb.WriteString(fmt.Sprintf(" DB time: %dms\n", result.DBTime))
@@ -79,7 +79,7 @@ func formatEvidenceSection(issue analysis.Issue) string {
 		return ""
 	}
 	var sb strings.Builder
-	sb.WriteString("🔍 Evidence:\n")
+	sb.WriteString("✎ Evidence:\n")
 	for _, e := range issue.Evidence {
 		display := e
 		if len(display) > 120 {
@@ -96,7 +96,7 @@ func formatChangeSection(issue analysis.Issue) string {
 	}
 	m := computeMetrics(issue.BaselineMs, issue.CurrentMs)
 	var sb strings.Builder
-	sb.WriteString("📊 Change:\n")
+	sb.WriteString("⇧ Change:\n")
 	if m.isRegression {
 		// Primary: multiplier
 		// Secondary: absolute + percentage in parentheses
@@ -120,7 +120,7 @@ func formatFixSection(issue analysis.Issue) string {
 		return ""
 	}
 	var sb strings.Builder
-	sb.WriteString("🛠 Suggested fixes:\n")
+	sb.WriteString("✄ Suggested fixes:\n")
 	for _, s := range suggestions {
 		sb.WriteString(fmt.Sprintf(" - %s\n", s))
 	}

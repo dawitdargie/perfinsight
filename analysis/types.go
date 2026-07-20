@@ -5,6 +5,7 @@ import "time"
 // AnalysisInput is the single data model for all rules.
 // It is built from multiple queries across traces, queries, and metrics tables.
 type AnalysisInput struct {
+	ServiceName  string
 	Endpoint     string
 	TotalLatency int64
 	DBTime       int64
@@ -42,6 +43,7 @@ type Issue struct {
 // Result is the enriched output of analysis, wrapping issues with context.
 // Output layer (Day 22) formats this struct for display.
 type Result struct {
+	ServiceName  string
 	Endpoint     string
 	AnalyzedAt   time.Time
 	Latency      int64

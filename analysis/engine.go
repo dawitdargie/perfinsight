@@ -41,15 +41,16 @@ func (as *AnalysisService) Close() error {
 func (as *AnalysisService) buildInput(endpoint string) (*AnalysisInput, error) {
 	// Query 1 — Get the worst trace in the analysis window (highest DB ratio)
 	var totalLatency, dbTime, externalTime, internalTime int64
+	var serviceName string
 	err := as.db.QueryRow(`
-		SELECT total_latency, db_time, external_time, internal_time
+		SELECT total_latency, db_time, external_time, internal_time, service_name
 		FROM traces
 		WHERE endpoint = $1
 		AND created_at > NOW() - INTERVAL '`+analysisWindow+`'
 		AND total_latency > 0
 		ORDER BY (db_time::float / total_latency) DESC
 		LIMIT 1
-	`, endpoint).Scan(&totalLatency, &dbTime, &externalTime, &internalTime)
+	`, endpoint).Scan(&totalLatency, &dbTime, &externalTime, &internalTime, &serviceName)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -117,6 +118,7 @@ func (as *AnalysisService) buildInput(endpoint string) (*AnalysisInput, error) {
 	}
 
 	return &AnalysisInput{
+		ServiceName:  serviceName,
 		Endpoint:     endpoint,
 		TotalLatency: totalLatency,
 		DBTime:       dbTime,
