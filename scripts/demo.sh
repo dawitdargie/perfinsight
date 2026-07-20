@@ -6,6 +6,15 @@ echo "
 ║ PerfInsight — Live Demo                     ║
 ╚══════════════════════════════════════════════╝
 "
+# Create .env with defaults if not present (for fresh clones)
+if [ ! -f .env ]; then
+  cat > .env << 'EOF'
+POSTGRES_USER=perfinsight
+POSTGRES_PASSWORD=perfinsight_secret
+POSTGRES_DB=perfinsight
+EOF
+  echo "[Setup] Created .env with default credentials"
+fi
 
 # Stop any existing services
 echo "[Setup] Stopping any existing services..."
