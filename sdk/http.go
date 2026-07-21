@@ -41,8 +41,12 @@ func HTTPMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		next(rw, r)
 
 		endTime := time.Now()
-		latency := endTime.Sub(startTime).Milliseconds()
+        latency := endTime.Sub(startTime).Milliseconds()
 
+// Prevent valid ultra-fast requests from being rejected.
+if latency == 0 {
+	latency = 1
+}
 		var completedTrace Trace
 		validTrace := false
 
