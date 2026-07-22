@@ -8,7 +8,7 @@ import "time"
 type AnalysisInput struct {
 	ServiceName  string
 	Endpoint     string
-	Method       string
+	Methods      []string
 	TotalLatency int64
 	DBTime       int64
 	ExternalTime int64
@@ -47,7 +47,7 @@ type Issue struct {
 type Result struct {
 	ServiceName  string
 	Endpoint     string
-	Method       string
+	Methods      []string
 	AnalyzedAt   time.Time
 	Latency      int64
 	DBTime       int64

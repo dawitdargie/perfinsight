@@ -49,20 +49,18 @@ func (as *AnalysisService) Close() error {
 // path never contaminate each other's results.
 func (as *AnalysisService) buildInput(serviceName, endpoint string) (*AnalysisInput, error) {
 	var totalLatency, dbTime, externalTime, internalTime int64
-	var method string
 	err := as.db.QueryRow(`
 		SELECT total_latency,
 		       COALESCE(db_time, 0),
 		       COALESCE(external_time, 0),
-		       COALESCE(internal_time, 0),
-		       method
+		       COALESCE(internal_time, 0)
 		FROM traces
 		WHERE endpoint = $1 AND service_name = $2
 		AND created_at > NOW() - INTERVAL '`+analysisWindow+`'
 		AND total_latency > 0
 		ORDER BY created_at DESC
 		LIMIT 1
-	`, endpoint, serviceName).Scan(&totalLatency, &dbTime, &externalTime, &internalTime, &method)
+	`, endpoint, serviceName).Scan(&totalLatency, &dbTime, &externalTime, &internalTime)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -125,10 +123,33 @@ func (as *AnalysisService) buildInput(serviceName, endpoint string) (*AnalysisIn
 		return nil, fmt.Errorf("iterate queries: %w", err)
 	}
 
+	var methods []string
+	methodRows, err := as.db.Query(`
+		SELECT DISTINCT method
+		FROM traces
+		WHERE endpoint = $1 AND service_name = $2
+		AND created_at > NOW() - INTERVAL '`+analysisWindow+`'
+		ORDER BY method
+	`, endpoint, serviceName)
+	if err != nil {
+		return nil, fmt.Errorf("query methods: %w", err)
+	}
+	defer methodRows.Close()
+	for methodRows.Next() {
+		var m string
+		if err := methodRows.Scan(&m); err != nil {
+			return nil, fmt.Errorf("scan method: %w", err)
+		}
+		methods = append(methods, m)
+	}
+	if err := methodRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate methods: %w", err)
+	}
+
 	return &AnalysisInput{
 		ServiceName:  serviceName,
 		Endpoint:     endpoint,
-		Method:       method,
+		Methods:      methods,
 		TotalLatency: totalLatency,
 		DBTime:       dbTime,
 		ExternalTime: externalTime,

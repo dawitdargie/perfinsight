@@ -38,11 +38,12 @@ func FormatResult(result *analysis.Result) string {
 
 func formatHeader(result *analysis.Result) string {
 	var sb strings.Builder
-	method := result.Method
-	if method == "" {
-		method = "GET"
+	methods := result.Methods
+	methodsStr := "GET"
+	if len(methods) > 0 {
+		methodsStr = strings.Join(methods, ", ")
 	}
-	sb.WriteString(fmt.Sprintf("⚠ Performance Analysis: %s [service: %s] Method: %s\n", result.Endpoint, result.ServiceName, method))
+	sb.WriteString(fmt.Sprintf("⚠ Performance Analysis: %s [service: %s] Methods: %s\n", result.Endpoint, result.ServiceName, methodsStr))
 	sb.WriteString(strings.Repeat("═", 50) + "\n")
 	sb.WriteString(fmt.Sprintf(" Total latency: %dms\n", result.Latency))
 	sb.WriteString(fmt.Sprintf(" DB time: %dms\n", result.DBTime))

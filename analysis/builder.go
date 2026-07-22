@@ -8,7 +8,7 @@ func BuildResult(input AnalysisInput, issues []Issue) *Result {
 	return &Result{
 		ServiceName:  input.ServiceName,
 		Endpoint:     input.Endpoint,
-		Method:       input.Method,
+		Methods:      input.Methods,
 		AnalyzedAt:   time.Now(),
 		Latency:      input.TotalLatency,
 		DBTime:       input.DBTime,
