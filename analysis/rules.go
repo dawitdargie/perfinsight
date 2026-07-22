@@ -1,3 +1,4 @@
+// analysis/rules.go
 package analysis
 
 import "fmt"

@@ -1,14 +1,19 @@
 package sdk
 
 import (
-	"io"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"sync"
 	"time"
+)
+
+const (
+	maxBatchSize  = 50
+	flushInterval = 500 * time.Millisecond
 )
 
 type Exporter struct {
@@ -39,13 +44,14 @@ func (e *Exporter) Enqueue(t Trace) {
 	select {
 	case e.buffer <- t:
 	default:
-	fmt.Fprintln(os.Stderr, "perfinsight: trace buffer full, dropping trace")	}
+		fmt.Fprintln(os.Stderr, "perfinsight: trace buffer full, dropping trace")
+	}
 }
 
 func (e *Exporter) run() {
 	defer e.wg.Done()
 
-	ticker := time.NewTicker(1 * time.Millisecond)
+	ticker := time.NewTicker(flushInterval)
 	defer ticker.Stop()
 
 	var batch []Trace
@@ -60,7 +66,7 @@ func (e *Exporter) run() {
 
 		case trace := <-e.buffer:
 			batch = append(batch, trace)
-			if len(batch) >= 1 {
+			if len(batch) >= maxBatchSize {
 				e.send(batch)
 				batch = nil
 			}
@@ -89,26 +95,25 @@ func (e *Exporter) send(traces []Trace) {
 	}
 
 	resp, err := e.client.Post(
-	e.collectorURL+"/ingest-trace",
-	"application/json",
-	bytes.NewReader(body),
-)
-if err != nil {
-	fmt.Fprintf(os.Stderr, "perfinsight: failed to send traces: %v\n", err)
-	return
-}
-defer resp.Body.Close()
-
-if resp.StatusCode >= 300 {
-	body, _ := io.ReadAll(resp.Body)
-
-	fmt.Fprintf(
-		os.Stderr,
-		"perfinsight: collector returned status %d: %s\n",
-		resp.StatusCode,
-		string(body),
+		e.collectorURL+"/ingest-trace",
+		"application/json",
+		bytes.NewReader(body),
 	)
-}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "perfinsight: failed to send traces: %v\n", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body)
+		fmt.Fprintf(
+			os.Stderr,
+			"perfinsight: collector returned status %d: %s\n",
+			resp.StatusCode,
+			string(respBody),
+		)
+	}
 }
 
 func (e *Exporter) Close() {

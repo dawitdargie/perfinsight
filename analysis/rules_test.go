@@ -1,3 +1,4 @@
+//analysis/rules_test.go
 package analysis
 
 import (

@@ -18,7 +18,7 @@ fi
 
 # Stop any existing services
 echo "[Setup] Stopping any existing services..."
-docker-compose down 2>/dev/null || true
+docker-compose down -v 2>/dev/null || true
 pkill -f testapp 2>/dev/null || true
 sleep 1
 

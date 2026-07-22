@@ -1,3 +1,4 @@
+// cmd/collector/main.go
 package main
 
 import (

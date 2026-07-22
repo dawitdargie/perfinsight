@@ -12,6 +12,10 @@ import (
 // FormatResult converts a Result into a complete CLI report string.
 // This is the only exported function in the output package.
 func FormatResult(result *analysis.Result) string {
+	if result == nil {
+		return "✓ No performance issues detected (no data yet for this endpoint)\n"
+	}
+
 	if !result.HasIssues {
 		return fmt.Sprintf("✓ No performance issues detected for %s\n", result.Endpoint)
 	}
@@ -34,7 +38,7 @@ func FormatResult(result *analysis.Result) string {
 
 func formatHeader(result *analysis.Result) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("⚠ Performance Analysis: Endpoint: %s [service: %s]\n", result.Endpoint, result.ServiceName))
+	sb.WriteString(fmt.Sprintf("⚠ Performance Analysis: %s [service: %s]\n", result.Endpoint, result.ServiceName))
 	sb.WriteString(strings.Repeat("═", 50) + "\n")
 	sb.WriteString(fmt.Sprintf(" Total latency: %dms\n", result.Latency))
 	sb.WriteString(fmt.Sprintf(" DB time: %dms\n", result.DBTime))
@@ -56,17 +60,14 @@ func formatIssue(issue analysis.Issue) string {
 	}
 	sb.WriteString("\n")
 
-	// Change section — only for regression/improvement
 	if issue.BaselineMs > 0 {
 		sb.WriteString(formatChangeSection(issue))
 		sb.WriteString("\n")
 	}
 
-	// Evidence section
 	sb.WriteString(formatEvidenceSection(issue))
 	sb.WriteString("\n")
 
-	// Fix section
 	sb.WriteString(formatFixSection(issue))
 	return sb.String()
 }
@@ -95,14 +96,10 @@ func formatChangeSection(issue analysis.Issue) string {
 	var sb strings.Builder
 	sb.WriteString("⇧ Change:\n")
 	if m.isRegression {
-		// Primary: multiplier
-		// Secondary: absolute + percentage in parentheses
 		sb.WriteString(fmt.Sprintf(" ~%.1f× slower than usual\n", m.multiplier))
 		sb.WriteString(fmt.Sprintf(" (%.0fms → %.0fms, ≈ +%.0f%%)\n",
 			issue.BaselineMs, issue.CurrentMs, m.percentage))
 	} else {
-		// Primary: percentage improvement
-		// Secondary: multiplier in parentheses
 		sb.WriteString(fmt.Sprintf(" ~%.0f%% faster than usual\n",
 			math.Abs(m.percentage)))
 		sb.WriteString(fmt.Sprintf(" (%.0fms → %.0fms, ≈ %.1f× faster)\n",
@@ -124,7 +121,6 @@ func formatFixSection(issue analysis.Issue) string {
 	return sb.String()
 }
 
-// suggestionsForPattern maps a pattern identifier to the corresponding templates.
 func suggestionsForPattern(pattern string) []string {
 	switch pattern {
 	case "DATABASE_BOTTLENECK":

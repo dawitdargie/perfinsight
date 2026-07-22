@@ -1,3 +1,4 @@
+// collector/load_test.go
 package collector
 
 import (

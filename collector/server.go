@@ -1,3 +1,4 @@
+// collector/server.go
 package collector
 
 import (
@@ -68,6 +69,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
+	serviceName := r.URL.Query().Get("service")
 	endpoint := r.URL.Query().Get("endpoint")
 	if endpoint == "" {
 		endpoint = "all"
@@ -80,25 +82,35 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	}
 	defer svc.Close()
 
-	var endpoints []string
+	var targets []analysis.EndpointKey
 	if endpoint == "all" {
-		endpoints, err = svc.AllEndpoints()
+		targets, err = svc.AllEndpoints(serviceName)
 		if err != nil {
 			http.Error(w, "list endpoints error: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if len(endpoints) == 0 {
+		if len(targets) == 0 {
 			fmt.Fprintln(w, "No endpoints found. Send some traffic first.")
 			return
 		}
 	} else {
-		endpoints = []string{endpoint}
+		if serviceName == "" {
+			http.Error(w, "service query parameter is required when endpoint is specified", http.StatusBadRequest)
+			return
+		}
+		targets = []analysis.EndpointKey{{ServiceName: serviceName, Endpoint: endpoint}}
 	}
 
-	for _, ep := range endpoints {
-		result, err := svc.AnalyzeEndpoint(ep)
+	for _, key := range targets {
+		result, err := svc.AnalyzeEndpoint(key.ServiceName, key.Endpoint)
 		if err != nil {
-			fmt.Fprintf(w, "Error analyzing %s: %v\n\n", ep, err)
+			fmt.Fprintf(w, "Error analyzing %s [%s]: %v\n\n", key.Endpoint, key.ServiceName, err)
+			continue
+		}
+		if result == nil {
+			// No data yet for this endpoint — this was previously an
+			// unguarded nil pointer passed to FormatResult, which panicked.
+			fmt.Fprintf(w, "No data yet for %s [%s]\n\n", key.Endpoint, key.ServiceName)
 			continue
 		}
 		fmt.Fprint(w, output.FormatResult(result))

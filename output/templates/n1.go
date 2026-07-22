@@ -1,3 +1,4 @@
+//templates//n1.go
 package templates
 
 // N1Query returns fix suggestions for N+1 query issues.

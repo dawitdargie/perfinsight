@@ -1,3 +1,4 @@
+//output/metrics_test.go
 package output
 
 import "testing"

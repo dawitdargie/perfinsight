@@ -1,3 +1,4 @@
+//templates/latency.go
 package templates
 
 func HighLatency() []string {

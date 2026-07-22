@@ -1,3 +1,4 @@
+// collector/normalizer.go
 package collector
 
 import (

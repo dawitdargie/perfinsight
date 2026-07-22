@@ -1,3 +1,4 @@
+// analysis/types.go
 package analysis
 
 import "time"
@@ -53,4 +54,11 @@ type Result struct {
 	CurrentAvg   float64
 	Issues       []Issue
 	HasIssues    bool
+}
+// EndpointKey identifies a unique (service, endpoint) pair. Analysis and
+// storage are scoped by this pair, not endpoint alone, so that two different
+// projects using the same endpoint path never share data.
+type EndpointKey struct {
+	ServiceName string
+	Endpoint    string
 }

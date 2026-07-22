@@ -1,3 +1,4 @@
+//output/full_output_test.go
 package output
 
 import (

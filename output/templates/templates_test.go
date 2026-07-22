@@ -1,3 +1,4 @@
+// templates/templates_test.go
 package templates
 
 import "testing"

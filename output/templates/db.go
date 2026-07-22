@@ -1,3 +1,4 @@
+//templates/api.go
 package templates
 
 // DBBottleneck returns fix suggestions for database bottleneck issues.

@@ -1,7 +1,9 @@
 package sdk
 
 import (
+	"fmt"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -27,57 +29,60 @@ func HTTPMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
 
+		traceID := generateTraceID()
 		trace := Trace{
-			TraceID:  generateTraceID(),
+			TraceID:  traceID,
 			Endpoint: r.URL.Path,
+			Method:   r.Method,
 		}
 
-		ctx := InjectTraceID(r.Context(), trace.TraceID)
+		ctx := InjectTraceID(r.Context(), traceID)
 		r = r.WithContext(ctx)
 
 		AddTrace(trace)
+		defer RemoveTrace(traceID)
 
 		rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 		next(rw, r)
 
 		endTime := time.Now()
-        latency := endTime.Sub(startTime).Milliseconds()
-
-// Prevent valid ultra-fast requests from being rejected.
-if latency == 0 {
-	latency = 1
-}
-		var completedTrace Trace
-		validTrace := false
-
-		mu.Lock()
-		if len(traces) > 0 {
-			last := &traces[len(traces)-1]
-			last.Latency = latency
-			last.StatusCode = rw.statusCode
-			SetServiceName(last, currentServiceName)
-
-			if err := FinalizeTrace(last); err != nil {
-				traces = traces[:len(traces)-1]
-				mu.Unlock()
-				return
-			}
-
-			completedTrace = *last
-			validTrace = true
+		latency := endTime.Sub(startTime).Milliseconds()
+		if latency <= 0 {
+			latency = 1
 		}
-		mu.Unlock()
 
-		if validTrace && globalExporter != nil {
+		t := GetActiveTrace(traceID)
+		if t == nil {
+			return
+		}
+		t.Latency = latency
+		t.StatusCode = rw.statusCode
+		SetServiceName(t, currentServiceName)
+
+		if err := FinalizeTrace(t); err != nil {
+			fmt.Fprintf(os.Stderr, "perfinsight: dropping invalid trace %s: %v\n", t.TraceID, err)
+			return
+		}
+
+		completedTrace := *t
+		addCompletedTrace(completedTrace)
+
+		if globalExporter != nil {
 			globalExporter.Enqueue(completedTrace)
 		}
 	}
 }
 
-// HTTPMiddlewareHandler wraps any http.Handler.
-// This allows users to instrument the entire application/router.
 func HTTPMiddlewareHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		HTTPMiddleware(next.ServeHTTP)(w, r)
 	})
+}
+// Shutdown flushes any buffered traces and stops the background exporter.
+// Call this once, during graceful shutdown, before the process exits —
+// otherwise traces enqueued but not yet sent can be lost.
+func Shutdown() {
+	if globalExporter != nil {
+		globalExporter.Close()
+	}
 }

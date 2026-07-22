@@ -1,3 +1,4 @@
+//output/classifier.go
 package output
 
 import "github.com/dawitdargie/perfinsight/analysis"

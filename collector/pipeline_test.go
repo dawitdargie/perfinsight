@@ -1,3 +1,4 @@
+//collector/pipeline_test.go
 package collector
 
 import (

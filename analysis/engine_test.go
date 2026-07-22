@@ -1,3 +1,4 @@
+// analysis/engine_test.go
 package analysis
 
 import (
@@ -15,9 +16,11 @@ func testService(t *testing.T) *AnalysisService {
 	return svc
 }
 
+const testServiceName = "test-service"
+
 func TestAnalyzeEndpoint_ReturnsNilForUnknownEndpoint(t *testing.T) {
 	svc := testService(t)
-	result, err := svc.AnalyzeEndpoint("/endpoint-that-does-not-exist-xyz")
+	result, err := svc.AnalyzeEndpoint(testServiceName, "/endpoint-that-does-not-exist-xyz")
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -28,7 +31,7 @@ func TestAnalyzeEndpoint_ReturnsNilForUnknownEndpoint(t *testing.T) {
 
 func TestAnalyzeEndpoint_ReturnsResultForKnownEndpoint(t *testing.T) {
 	svc := testService(t)
-	result, err := svc.AnalyzeEndpoint("/orders")
+	result, err := svc.AnalyzeEndpoint(testServiceName, "/orders")
 	if err != nil {
 		t.Fatalf("Analysis error: %v", err)
 	}
@@ -37,6 +40,9 @@ func TestAnalyzeEndpoint_ReturnsResultForKnownEndpoint(t *testing.T) {
 	}
 	if result.Endpoint != "/orders" {
 		t.Errorf("Expected endpoint /orders, got %s", result.Endpoint)
+	}
+	if result.ServiceName != testServiceName {
+		t.Errorf("Expected service %s, got %s", testServiceName, result.ServiceName)
 	}
 	if result.AnalyzedAt.IsZero() {
 		t.Error("AnalyzedAt should be set")
@@ -48,7 +54,7 @@ func TestAnalyzeEndpoint_ReturnsResultForKnownEndpoint(t *testing.T) {
 
 func TestAnalyzeEndpoint_DetectsN1InRealData(t *testing.T) {
 	svc := testService(t)
-	result, err := svc.AnalyzeEndpoint("/orders")
+	result, err := svc.AnalyzeEndpoint(testServiceName, "/orders")
 	if err != nil {
 		t.Fatalf("Analysis error: %v", err)
 	}
@@ -77,7 +83,7 @@ func TestAnalyzeEndpoint_DetectsN1InRealData(t *testing.T) {
 
 func TestAllEndpoints_ReturnsKnownEndpoints(t *testing.T) {
 	svc := testService(t)
-	endpoints, err := svc.AllEndpoints()
+	endpoints, err := svc.AllEndpoints("")
 	if err != nil {
 		t.Fatalf("AllEndpoints error: %v", err)
 	}
@@ -85,13 +91,24 @@ func TestAllEndpoints_ReturnsKnownEndpoints(t *testing.T) {
 		t.Skip("No endpoints in metrics table — run pipeline test first")
 	}
 	found := false
-	for _, ep := range endpoints {
-		if ep == "/orders" {
+	for _, key := range endpoints {
+		if key.ServiceName == testServiceName && key.Endpoint == "/orders" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Error("Expected /orders in endpoints list")
+		t.Error("Expected /orders for test-service in endpoints list")
+	}
+}
+
+func TestAllEndpoints_ScopedByService(t *testing.T) {
+	svc := testService(t)
+	endpoints, err := svc.AllEndpoints("service-that-does-not-exist-xyz")
+	if err != nil {
+		t.Fatalf("AllEndpoints error: %v", err)
+	}
+	if len(endpoints) != 0 {
+		t.Errorf("Expected no endpoints for nonexistent service, got %d", len(endpoints))
 	}
 }

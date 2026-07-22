@@ -1,3 +1,4 @@
+// output/formatter_test.go
 package output
 
 import (

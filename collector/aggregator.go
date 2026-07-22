@@ -37,22 +37,22 @@ func (a *Aggregator) run() {
 }
 
 func (a *Aggregator) recalculateBaselines() {
-	endpoints, err := a.storage.GetEndpoints()
+	keys, err := a.storage.GetEndpoints()
 	if err != nil {
 		log.Printf("[AGGREGATOR] failed to get endpoints: %v", err)
 		return
 	}
-	for _, endpoint := range endpoints {
-		hourlyAvg, err := a.storage.GetHourlyAverage(endpoint)
+	for _, key := range keys {
+		hourlyAvg, err := a.storage.GetHourlyAverage(key)
 		if err != nil {
-			log.Printf("[AGGREGATOR] failed to get hourly avg for %s: %v", endpoint, err)
+			log.Printf("[AGGREGATOR] failed to get hourly avg for %s [%s]: %v", key.Endpoint, key.ServiceName, err)
 			continue
 		}
-		if err := a.storage.UpdateBaseline(endpoint, hourlyAvg); err != nil {
-			log.Printf("[AGGREGATOR] failed to update baseline for %s: %v", endpoint, err)
+		if err := a.storage.UpdateBaseline(key, hourlyAvg); err != nil {
+			log.Printf("[AGGREGATOR] failed to update baseline for %s [%s]: %v", key.Endpoint, key.ServiceName, err)
 			continue
 		}
-		log.Printf("[AGGREGATOR] updated baseline for %s: %.2fms", endpoint, hourlyAvg)
+		log.Printf("[AGGREGATOR] updated baseline for %s [%s]: %.2fms", key.Endpoint, key.ServiceName, hourlyAvg)
 	}
 }
 

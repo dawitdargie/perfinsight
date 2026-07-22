@@ -1,3 +1,4 @@
+// sdk/sdk_coverage_test.go
 package sdk
 
 import (
@@ -31,11 +32,11 @@ func TestInit_SetsServiceName(t *testing.T) {
 
 func TestFinalizeTrace_RejectsInvalidTrace(t *testing.T) {
 	trace := &Trace{
-		TraceID:    "test-invalid",
-		Endpoint:   "/orders",
-		Latency:    100,
-		DBTime:     200, // Impossible: DB > Total
-		StatusCode: 200,
+		TraceID:     "test-invalid",
+		Endpoint:    "/orders",
+		Latency:     100,
+		DBTime:      200, // Impossible: DB > Total
+		StatusCode:  200,
 		ServiceName: "test",
 	}
 
@@ -72,7 +73,6 @@ func TestHTTPMiddleware_ConcurrentRequestsIsolated(t *testing.T) {
 		t.Errorf("Expected 10 traces, got %d", len(traces))
 	}
 
-	// Verify all trace IDs are unique
 	seen := make(map[string]bool)
 	for _, trace := range traces {
 		if seen[trace.TraceID] {
@@ -123,5 +123,9 @@ func TestResetTraces_ClearsAllTraces(t *testing.T) {
 
 	if len(GetTraces()) != 0 {
 		t.Errorf("Expected 0 traces after reset, got %d", len(GetTraces()))
+	}
+
+	if ActiveTraceCount() != 0 {
+		t.Errorf("Expected 0 active traces after reset, got %d", ActiveTraceCount())
 	}
 }

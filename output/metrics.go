@@ -1,3 +1,4 @@
+// output/metrics.go
 package output
 
 import "math"

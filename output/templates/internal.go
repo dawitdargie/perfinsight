@@ -1,3 +1,4 @@
+//templates/error_rate.go
 package templates
 
 func HighInternalProcessing() []string {

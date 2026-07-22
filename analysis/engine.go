@@ -7,17 +7,12 @@ import (
 	_ "github.com/lib/pq"
 )
 
-// analysisWindow is the default lookback window for hot detection.
-// Traces older than this are not checked for active issues.
 const analysisWindow = "1 hour"
 
-// AnalysisService holds the database connection for the analysis engine.
-// It is completely separate from the collector's connection pool.
 type AnalysisService struct {
 	db *sql.DB
 }
 
-// NewAnalysisService creates a new AnalysisService with its own database connection.
 func NewAnalysisService(databaseURL string) (*AnalysisService, error) {
 	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
@@ -31,26 +26,24 @@ func NewAnalysisService(databaseURL string) (*AnalysisService, error) {
 	return &AnalysisService{db: db}, nil
 }
 
-// Close closes the database connection.
 func (as *AnalysisService) Close() error {
 	return as.db.Close()
 }
 
-// buildInput queries the database and assembles an AnalysisInput for the given endpoint.
-// Returns (nil, nil) if no data exists for the endpoint.
-func (as *AnalysisService) buildInput(endpoint string) (*AnalysisInput, error) {
-	// Query 1 — Get the most recent trace in the analysis window
+// buildInput now takes serviceName explicitly — every query is scoped to
+// (service_name, endpoint), so two different projects sharing an endpoint
+// path never contaminate each other's results.
+func (as *AnalysisService) buildInput(serviceName, endpoint string) (*AnalysisInput, error) {
 	var totalLatency, dbTime, externalTime, internalTime int64
-	var serviceName string
 	err := as.db.QueryRow(`
-		SELECT total_latency, db_time, external_time, internal_time, service_name
+		SELECT total_latency, db_time, external_time, internal_time
 		FROM traces
-		WHERE endpoint = $1
+		WHERE endpoint = $1 AND service_name = $2
 		AND created_at > NOW() - INTERVAL '`+analysisWindow+`'
 		AND total_latency > 0
 		ORDER BY created_at DESC
-        LIMIT 1
-	`, endpoint).Scan(&totalLatency, &dbTime, &externalTime, &internalTime, &serviceName)
+		LIMIT 1
+	`, endpoint, serviceName).Scan(&totalLatency, &dbTime, &externalTime, &internalTime)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -58,48 +51,44 @@ func (as *AnalysisService) buildInput(endpoint string) (*AnalysisInput, error) {
 		return nil, fmt.Errorf("query worst trace: %w", err)
 	}
 
-	// Query 2 — Get baseline average from metrics table
 	var baselineAvg float64
 	err = as.db.QueryRow(`
-		SELECT baseline_avg FROM metrics WHERE endpoint = $1
-	`, endpoint).Scan(&baselineAvg)
+		SELECT baseline_avg FROM metrics WHERE endpoint = $1 AND service_name = $2
+	`, endpoint, serviceName).Scan(&baselineAvg)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("query baseline: %w", err)
 	}
 
-	// Query 3 — Get current average within the analysis window
 	var currentAvg float64
 	err = as.db.QueryRow(`
 		SELECT COALESCE(AVG(total_latency), 0)
 		FROM traces
-		WHERE endpoint = $1
+		WHERE endpoint = $1 AND service_name = $2
 		AND created_at > NOW() - INTERVAL '`+analysisWindow+`'
-	`, endpoint).Scan(&currentAvg)
+	`, endpoint, serviceName).Scan(&currentAvg)
 	if err != nil {
 		return nil, fmt.Errorf("query current avg: %w", err)
 	}
 
-	// Query 4 — Get error rate from metrics table
 	var errorCount, requestCount int
 	err = as.db.QueryRow(`
 		SELECT COALESCE(error_count, 0), COALESCE(request_count, 0)
-		FROM metrics WHERE endpoint = $1
-	`, endpoint).Scan(&errorCount, &requestCount)
+		FROM metrics WHERE endpoint = $1 AND service_name = $2
+	`, endpoint, serviceName).Scan(&errorCount, &requestCount)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("query metrics: %w", err)
 	}
 
-	// Query 5 — Get queries aggregated by SQL across the analysis window
 	rows, err := as.db.Query(`
 		SELECT q.sql_text, MAX(q.execution_count), COALESCE(AVG(q.total_time), 0)::bigint
 		FROM queries q
 		JOIN traces t ON q.trace_id = t.trace_id
-		WHERE t.endpoint = $1
+		WHERE t.endpoint = $1 AND t.service_name = $2
 		AND t.created_at > NOW() - INTERVAL '`+analysisWindow+`'
 		GROUP BY q.sql_text
 		ORDER BY MAX(q.execution_count) DESC
 		LIMIT 50
-	`, endpoint)
+	`, endpoint, serviceName)
 	if err != nil {
 		return nil, fmt.Errorf("query queries: %w", err)
 	}
@@ -133,9 +122,8 @@ func (as *AnalysisService) buildInput(endpoint string) (*AnalysisInput, error) {
 	}, nil
 }
 
-// AnalyzeEndpoint analyzes the given endpoint and returns a structured result.
-func (as *AnalysisService) AnalyzeEndpoint(endpoint string) (*Result, error) {
-	input, err := as.buildInput(endpoint)
+func (as *AnalysisService) AnalyzeEndpoint(serviceName, endpoint string) (*Result, error) {
+	input, err := as.buildInput(serviceName, endpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +135,6 @@ func (as *AnalysisService) AnalyzeEndpoint(endpoint string) (*Result, error) {
 	return result, nil
 }
 
-// computeErrorRate returns the error rate as a percentage.
 func computeErrorRate(errors, requests int) float64 {
 	if requests == 0 {
 		return 0
@@ -155,28 +142,35 @@ func computeErrorRate(errors, requests int) float64 {
 	return float64(errors) / float64(requests) * 100
 }
 
-// AllEndpoints returns all known endpoints from the metrics table.
-func (as *AnalysisService) AllEndpoints() ([]string, error) {
-	rows, err := as.db.Query(`
-		SELECT DISTINCT endpoint
+// AllEndpoints returns all known (service, endpoint) pairs. Pass an empty
+// serviceName to list across all services; pass a specific name to scope to
+// one project.
+func (as *AnalysisService) AllEndpoints(serviceName string) ([]EndpointKey, error) {
+	query := `
+		SELECT DISTINCT service_name, endpoint
 		FROM traces
 		WHERE created_at > NOW() - INTERVAL '1 hour'
-		ORDER BY endpoint
-	`)
+	`
+	var args []interface{}
+	if serviceName != "" {
+		query += ` AND service_name = $1`
+		args = append(args, serviceName)
+	}
+	query += ` ORDER BY service_name, endpoint`
+
+	rows, err := as.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var endpoints []string
-
+	var keys []EndpointKey
 	for rows.Next() {
-		var ep string
-		if err := rows.Scan(&ep); err != nil {
+		var k EndpointKey
+		if err := rows.Scan(&k.ServiceName, &k.Endpoint); err != nil {
 			return nil, err
 		}
-		endpoints = append(endpoints, ep)
+		keys = append(keys, k)
 	}
-
-	return endpoints, nil
+	return keys, nil
 }

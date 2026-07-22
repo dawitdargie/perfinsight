@@ -1,3 +1,4 @@
+//templates/api.go
 package templates
 
 // ExternalAPIBottleneck returns fix suggestions for external API bottleneck issues.

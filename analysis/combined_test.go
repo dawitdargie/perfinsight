@@ -1,3 +1,4 @@
+//analysis/combined_test.go
 package analysis
 
 import "testing"

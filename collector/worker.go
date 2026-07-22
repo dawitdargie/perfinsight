@@ -1,3 +1,4 @@
+// collector/worker.go
 package collector
 
 import (
