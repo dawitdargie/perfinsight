@@ -11,9 +11,13 @@ import (
 )
 
 func main() {
-	serviceName := flag.String("service", "", "Service name to analyze (required unless -endpoint=all)")
+	serviceName := flag.String("service", "", "Service name to analyze (required)")
 	endpoint := flag.String("endpoint", "all", "Endpoint to analyze, or 'all'")
 	flag.Parse()
+
+	if *serviceName == "" {
+		log.Fatal("-service is required. Usage: go run cmd/analyze/main.go -service=myapp -endpoint=all")
+	}
 
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
@@ -37,9 +41,6 @@ func main() {
 			return
 		}
 	} else {
-		if *serviceName == "" {
-			log.Fatal("-service is required when -endpoint is set (two different projects can share an endpoint path)")
-		}
 		targets = []analysis.EndpointKey{{ServiceName: *serviceName, Endpoint: *endpoint}}
 	}
 

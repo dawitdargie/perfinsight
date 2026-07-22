@@ -36,7 +36,10 @@ func (as *AnalysisService) Close() error {
 func (as *AnalysisService) buildInput(serviceName, endpoint string) (*AnalysisInput, error) {
 	var totalLatency, dbTime, externalTime, internalTime int64
 	err := as.db.QueryRow(`
-		SELECT total_latency, db_time, external_time, internal_time
+		SELECT total_latency,
+		       COALESCE(db_time, 0),
+		       COALESCE(external_time, 0),
+		       COALESCE(internal_time, 0)
 		FROM traces
 		WHERE endpoint = $1 AND service_name = $2
 		AND created_at > NOW() - INTERVAL '`+analysisWindow+`'
@@ -80,13 +83,13 @@ func (as *AnalysisService) buildInput(serviceName, endpoint string) (*AnalysisIn
 	}
 
 	rows, err := as.db.Query(`
-		SELECT q.sql_text, MAX(q.execution_count), COALESCE(AVG(q.total_time), 0)::bigint
+		SELECT q.sql_text, COALESCE(MAX(q.execution_count), 0), COALESCE(AVG(q.total_time), 0)::bigint
 		FROM queries q
 		JOIN traces t ON q.trace_id = t.trace_id
 		WHERE t.endpoint = $1 AND t.service_name = $2
 		AND t.created_at > NOW() - INTERVAL '`+analysisWindow+`'
 		GROUP BY q.sql_text
-		ORDER BY MAX(q.execution_count) DESC
+		ORDER BY COALESCE(MAX(q.execution_count), 0) DESC
 		LIMIT 50
 	`, endpoint, serviceName)
 	if err != nil {

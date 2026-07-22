@@ -100,12 +100,18 @@ The SDK silently collects traces and sends them to the collector every 5 seconds
 ### Run analysis (no clone, no DB password)
 
 ```bash
-curl "https://perfinsight-collector.onrender.com/analyze?endpoint=all"
+curl "https://perfinsight-collector.onrender.com/analyze?endpoint=all&service=YOUR_SERVICE_NAME"
 ```
 or you can specify one endpoint:
 ```bash
-curl "https://perfinsight-collector.onrender.com/analyze?endpoint=/your-endpoint"
+curl "https://perfinsight-collector.onrender.com/analyze?endpoint=/your-endpoint&service=YOUR_SERVICE_NAME"
 ```
+
+> **Important**
+>
+> The `service` parameter is **required** for all analysis requests. Use the same service name you passed to `sdk.Init()` when you instrumented your application.
+>
+> This ensures PerfInsight only shows telemetry from your application and keeps data isolated between different projects.
 
 Output:
 
@@ -182,7 +188,7 @@ Your App + SDK  ──HTTP──▶  Collector (Render)  ──SQL──▶  Neo
 
 - Live collector: `https://perfinsight-collector.onrender.com`
 - Health check: `curl https://perfinsight-collector.onrender.com/health`
-- Analyze endpoints: `curl "https://perfinsight-collector.onrender.com/analyze?endpoint=all"`
+- Analyze endpoints: `curl "https://perfinsight-collector.onrender.com/analyze?endpoint=all&service=YOUR_SERVICE_NAME"`
 
 ## Requirements
 

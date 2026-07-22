@@ -70,6 +70,11 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	serviceName := r.URL.Query().Get("service")
+	if serviceName == "" {
+		http.Error(w, "service query parameter is required. Usage: ?endpoint=all&service=YOUR_SERVICE_NAME", http.StatusBadRequest)
+		return
+	}
+
 	endpoint := r.URL.Query().Get("endpoint")
 	if endpoint == "" {
 		endpoint = "all"
@@ -94,10 +99,6 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		if serviceName == "" {
-			http.Error(w, "service query parameter is required when endpoint is specified", http.StatusBadRequest)
-			return
-		}
 		targets = []analysis.EndpointKey{{ServiceName: serviceName, Endpoint: endpoint}}
 	}
 
