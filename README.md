@@ -79,6 +79,21 @@ http.ListenAndServe(":YOUR_PORT", wrappedHandler)
 
 PerfInsight will automatically capture telemetry for every route handled by your application.
 
+If your application uses custom middleware, wrap the final handler after applying your middleware:
+
+```go
+handler := yourMiddleware1(yourHandler)
+handler = yourMiddleware2(handler)
+.
+.
+.
+wrappedHandler := sdk.HTTPMiddlewareHandler(handler)
+
+http.ListenAndServe(":YOUR_PORT", wrappedHandler)
+// or
+ return wrappedHandler// based on your application structure
+```
+
 Alternatively, you can instrument individual routes manually:
 
 ```go
