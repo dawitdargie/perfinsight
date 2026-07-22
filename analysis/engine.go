@@ -17,10 +17,15 @@ type AnalysisService struct {
 func NewAnalysisService(databaseURL string) (*AnalysisService, error) {
 	connStr := databaseURL
 	if !strings.Contains(connStr, "binary_parameters") {
-		if strings.Contains(connStr, "?") {
-			connStr += "&binary_parameters=yes"
+		if strings.HasPrefix(connStr, "postgres://") || strings.HasPrefix(connStr, "postgresql://") {
+			if strings.Contains(connStr, "?") {
+				connStr += "&binary_parameters=yes"
+			} else {
+				connStr += "?binary_parameters=yes"
+			}
 		} else {
-			connStr += "?binary_parameters=yes"
+			// Space-separated key=value format (e.g. "host=... dbname=...")
+			connStr += " binary_parameters=yes"
 		}
 	}
 	db, err := sql.Open("postgres", connStr)
@@ -44,18 +49,20 @@ func (as *AnalysisService) Close() error {
 // path never contaminate each other's results.
 func (as *AnalysisService) buildInput(serviceName, endpoint string) (*AnalysisInput, error) {
 	var totalLatency, dbTime, externalTime, internalTime int64
+	var method string
 	err := as.db.QueryRow(`
 		SELECT total_latency,
 		       COALESCE(db_time, 0),
 		       COALESCE(external_time, 0),
-		       COALESCE(internal_time, 0)
+		       COALESCE(internal_time, 0),
+		       method
 		FROM traces
 		WHERE endpoint = $1 AND service_name = $2
 		AND created_at > NOW() - INTERVAL '`+analysisWindow+`'
 		AND total_latency > 0
 		ORDER BY created_at DESC
 		LIMIT 1
-	`, endpoint, serviceName).Scan(&totalLatency, &dbTime, &externalTime, &internalTime)
+	`, endpoint, serviceName).Scan(&totalLatency, &dbTime, &externalTime, &internalTime, &method)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -121,6 +128,7 @@ func (as *AnalysisService) buildInput(serviceName, endpoint string) (*AnalysisIn
 	return &AnalysisInput{
 		ServiceName:  serviceName,
 		Endpoint:     endpoint,
+		Method:       method,
 		TotalLatency: totalLatency,
 		DBTime:       dbTime,
 		ExternalTime: externalTime,

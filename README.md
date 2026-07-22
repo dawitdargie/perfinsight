@@ -116,7 +116,7 @@ curl "https://perfinsight-collector.onrender.com/analyze?endpoint=/your-endpoint
 Output:
 
 ```
-⚠ Performance Analysis: Endpoint: /orders [service: my-service]
+⚠ Performance Analysis: /orders [service: my-service] Method: GET
 ══════════════════════════════════════════════
  Total latency: 66ms
  DB time: 62ms

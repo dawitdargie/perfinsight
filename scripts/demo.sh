@@ -75,7 +75,7 @@ sleep 6
 # Run analysis
 echo "[4/5] Running performance analysis..."
 export DATABASE_URL="host=localhost user=perfinsight password=perfinsight_secret dbname=perfinsight sslmode=disable"
-go run cmd/analyze/main.go -endpoint all
+go run cmd/analyze/main.go -endpoint all -service test-service
 
 # Cleanup
 echo "[5/5] Cleaning up..."
