@@ -87,9 +87,8 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	}
 	defer svc.Close()
 
-	var targets []analysis.EndpointKey
 	if endpoint == "all" {
-		targets, err = svc.AllEndpoints(serviceName)
+		targets, err := svc.RecentEndpoints(serviceName, 3)
 		if err != nil {
 			http.Error(w, "list endpoints error: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -98,25 +97,45 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, "No endpoints found. Send some traffic first.")
 			return
 		}
-	} else {
-		targets = []analysis.EndpointKey{{ServiceName: serviceName, Endpoint: endpoint}}
+		for _, key := range targets {
+			result, err := svc.AnalyzeEndpoint(key.ServiceName, key.Endpoint)
+			if err != nil {
+				fmt.Fprintf(w, "Error analyzing %s [%s]: %v\n\n", key.Endpoint, key.ServiceName, err)
+				continue
+			}
+			if result == nil {
+				fmt.Fprintf(w, "No data yet for %s [%s]\n\n", key.Endpoint, key.ServiceName)
+				continue
+			}
+			fmt.Fprint(w, output.FormatResult(result))
+			fmt.Fprintln(w)
+		}
+		return
 	}
 
-	for _, key := range targets {
-		result, err := svc.AnalyzeEndpoint(key.ServiceName, key.Endpoint)
-		if err != nil {
-			fmt.Fprintf(w, "Error analyzing %s [%s]: %v\n\n", key.Endpoint, key.ServiceName, err)
-			continue
-		}
-		if result == nil {
-			// No data yet for this endpoint — this was previously an
-			// unguarded nil pointer passed to FormatResult, which panicked.
-			fmt.Fprintf(w, "No data yet for %s [%s]\n\n", key.Endpoint, key.ServiceName)
-			continue
-		}
-		fmt.Fprint(w, output.FormatResult(result))
-		fmt.Fprintln(w)
+	// Specific endpoint — check if it was recently accessed
+	recent, err := svc.IsEndpointRecent(serviceName, endpoint)
+	if err != nil {
+		http.Error(w, "check endpoint error: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
+	if !recent {
+		fmt.Fprintf(w, "Endpoint %s has not been accessed recently. Send traffic to %s and re-run the analysis.\n", endpoint, endpoint)
+		return
+	}
+
+	key := analysis.EndpointKey{ServiceName: serviceName, Endpoint: endpoint}
+	result, err := svc.AnalyzeEndpoint(key.ServiceName, key.Endpoint)
+	if err != nil {
+		fmt.Fprintf(w, "Error analyzing %s [%s]: %v\n", key.Endpoint, key.ServiceName, err)
+		return
+	}
+	if result == nil {
+		fmt.Fprintf(w, "No data yet for %s [%s]\n", key.Endpoint, key.ServiceName)
+		return
+	}
+	fmt.Fprint(w, output.FormatResult(result))
+	fmt.Fprintln(w)
 }
 
 func (s *Server) Start(addr string) error {

@@ -129,6 +129,7 @@ func (as *AnalysisService) buildInput(serviceName, endpoint string) (*AnalysisIn
 		FROM traces
 		WHERE endpoint = $1 AND service_name = $2
 		AND created_at > NOW() - INTERVAL '`+analysisWindow+`'
+		AND method != ''
 		ORDER BY method
 	`, endpoint, serviceName)
 	if err != nil {
@@ -183,23 +184,18 @@ func computeErrorRate(errors, requests int) float64 {
 	return float64(errors) / float64(requests) * 100
 }
 
-// AllEndpoints returns all known (service, endpoint) pairs. Pass an empty
-// serviceName to list across all services; pass a specific name to scope to
-// one project.
-func (as *AnalysisService) AllEndpoints(serviceName string) ([]EndpointKey, error) {
-	query := `
-		SELECT DISTINCT service_name, endpoint
+// RecentEndpoints returns the most recently accessed endpoints for the given
+// service, ordered by most recent traffic first, limited to the given count.
+func (as *AnalysisService) RecentEndpoints(serviceName string, limit int) ([]EndpointKey, error) {
+	rows, err := as.db.Query(`
+		SELECT service_name, endpoint
 		FROM traces
-		WHERE created_at > NOW() - INTERVAL '1 hour'
-	`
-	var args []interface{}
-	if serviceName != "" {
-		query += ` AND service_name = $1`
-		args = append(args, serviceName)
-	}
-	query += ` ORDER BY service_name, endpoint`
-
-	rows, err := as.db.Query(query, args...)
+		WHERE service_name = $1
+		AND created_at > NOW() - INTERVAL '1 hour'
+		GROUP BY service_name, endpoint
+		ORDER BY MAX(created_at) DESC
+		LIMIT $2
+	`, serviceName, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -214,4 +210,20 @@ func (as *AnalysisService) AllEndpoints(serviceName string) ([]EndpointKey, erro
 		keys = append(keys, k)
 	}
 	return keys, nil
+}
+
+// IsEndpointRecent checks whether the given endpoint has been accessed recently
+// (within the last hour) for the specified service.
+func (as *AnalysisService) IsEndpointRecent(serviceName, endpoint string) (bool, error) {
+	var count int
+	err := as.db.QueryRow(`
+		SELECT COUNT(*)
+		FROM traces
+		WHERE service_name = $1 AND endpoint = $2
+		AND created_at > NOW() - INTERVAL '1 hour'
+	`, serviceName, endpoint).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

@@ -32,7 +32,7 @@ func main() {
 
 	var targets []analysis.EndpointKey
 	if *endpoint == "all" {
-		targets, err = svc.AllEndpoints(*serviceName)
+		targets, err = svc.RecentEndpoints(*serviceName, 3)
 		if err != nil {
 			log.Fatalf("Failed to list endpoints: %v", err)
 		}

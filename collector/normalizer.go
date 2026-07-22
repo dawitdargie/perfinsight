@@ -12,6 +12,9 @@ func Normalize(t *sdk.Trace) {
 		t.ServiceName = "unknown"
 	}
 
+	if t.Method == "" {
+		t.Method = "GET"
+	}
 	if t.Timestamp.IsZero() {
 		t.Timestamp = time.Now()
 	}

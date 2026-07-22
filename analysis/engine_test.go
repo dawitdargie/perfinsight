@@ -81,14 +81,14 @@ func TestAnalyzeEndpoint_DetectsN1InRealData(t *testing.T) {
 	}
 }
 
-func TestAllEndpoints_ReturnsKnownEndpoints(t *testing.T) {
+func TestRecentEndpoints_ReturnsKnownEndpoints(t *testing.T) {
 	svc := testService(t)
-	endpoints, err := svc.AllEndpoints("")
+	endpoints, err := svc.RecentEndpoints(testServiceName, 10)
 	if err != nil {
-		t.Fatalf("AllEndpoints error: %v", err)
+		t.Fatalf("RecentEndpoints error: %v", err)
 	}
 	if len(endpoints) == 0 {
-		t.Skip("No endpoints in metrics table — run pipeline test first")
+		t.Skip("No endpoints in traces table — run pipeline test first")
 	}
 	found := false
 	for _, key := range endpoints {
@@ -102,11 +102,11 @@ func TestAllEndpoints_ReturnsKnownEndpoints(t *testing.T) {
 	}
 }
 
-func TestAllEndpoints_ScopedByService(t *testing.T) {
+func TestRecentEndpoints_ScopedByService(t *testing.T) {
 	svc := testService(t)
-	endpoints, err := svc.AllEndpoints("service-that-does-not-exist-xyz")
+	endpoints, err := svc.RecentEndpoints("service-that-does-not-exist-xyz", 3)
 	if err != nil {
-		t.Fatalf("AllEndpoints error: %v", err)
+		t.Fatalf("RecentEndpoints error: %v", err)
 	}
 	if len(endpoints) != 0 {
 		t.Errorf("Expected no endpoints for nonexistent service, got %d", len(endpoints))
