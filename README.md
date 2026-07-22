@@ -4,28 +4,72 @@ Go runtime performance intelligence platform. Instrument your Go application wit
 
 ## Quick Start
 
-### 1. Instrument your Go app
+### Instrument Your Go Application
 
-Install the SDK:
+## 1. Install the SDK
 
 ```bash
 go get github.com/dawitdargie/perfinsight
 ```
-Import the package:
+
+## 2. Import the SDK
+
 ```go
 import "github.com/dawitdargie/perfinsight/sdk"
 ```
 
-Initialize the SDK:
+## 3. Initialize the SDK
+
 ```go
 sdk.Init("my-service", "https://perfinsight-collector.onrender.com")
 ```
-Wrap your database connection:
+
+> **Important**
+>
+> The first argument (`serviceName`) **must be unique** for each application using PerfInsight.
+>
+> Examples:
+>
+> - `user-api`
+> - `payment-service`
+> - `inventory-api`
+> - `order-service`
+>
+> PerfInsight uses the service name to isolate telemetry and analysis for different applications. Using the same service name for multiple projects will mix their telemetry together.
+
+## 4. Wrap Your Database Connection
+
 ```go
-tracedDB := sdk.WrapDB(db)//Use tracedDB instead of db for database operations to enable query performance tracking.
+tracedDB := sdk.WrapDB(db)
 ```
 
-Wrap your HTTP handler:
+Use `tracedDB` instead of `db` throughout your application to enable query performance tracking.
+
+### Database Context Requirement
+
+When executing database operations inside an HTTP request, always use the context-aware database methods:
+
+```go
+tracedDB.QueryContext(r.Context(), ...)
+tracedDB.QueryRowContext(r.Context(), ...)
+tracedDB.ExecContext(r.Context(), ...)
+```
+
+instead of:
+
+```go
+tracedDB.Query(...)
+tracedDB.QueryRow(...)
+tracedDB.Exec(...)
+```
+
+Using the context-aware methods allows PerfInsight to correctly associate database queries with the active HTTP request, even when multiple requests are processed concurrently.
+
+The non-context methods will continue to work normally, but their database operations cannot be reliably attributed to a specific request and therefore will not appear in database performance analysis.
+
+## 5. Wrap Your HTTP Handler
+
+Wrap your application's main handler:
 
 ```go
 wrappedHandler := sdk.HTTPMiddlewareHandler(yourHandler)
@@ -33,17 +77,14 @@ wrappedHandler := sdk.HTTPMiddlewareHandler(yourHandler)
 http.ListenAndServe(":YOUR_PORT", wrappedHandler)
 ```
 
-PerfInsight will automatically capture telemetry for all routes handled by your application.
-
----
+PerfInsight will automatically capture telemetry for every route handled by your application.
 
 Alternatively, you can instrument individual routes manually:
 
 ```go
 http.HandleFunc("/your-route", sdk.HTTPMiddleware(yourHandler))
 ```
-
-### 2. Run your app
+### Run your app
 
 ```bash
 go run main.go
@@ -56,7 +97,7 @@ For more reliable analysis results, send multiple requests to generate enough te
 
 The SDK silently collects traces and sends them to the collector every 5 seconds.
 
-### 3. Run analysis (no clone, no DB password)
+### Run analysis (no clone, no DB password)
 
 ```bash
 curl "https://perfinsight-collector.onrender.com/analyze?endpoint=all"
