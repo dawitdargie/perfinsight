@@ -20,6 +20,13 @@ func (rw *responseWriter) WriteHeader(code int) {
 var currentServiceName string
 var globalExporter *Exporter
 
+// skipPaths are request paths that should not be traced.
+// Browsers automatically request /favicon.ico, which would pollute
+// every project's analysis with noise if traced.
+var skipPaths = map[string]bool{
+	"/favicon.ico": true,
+}
+
 func Init(serviceName string, collectorURL string) {
 	currentServiceName = serviceName
 	globalExporter = NewExporter(collectorURL)
@@ -27,6 +34,11 @@ func Init(serviceName string, collectorURL string) {
 
 func HTTPMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if skipPaths[r.URL.Path] {
+			next(w, r)
+			return
+		}
+
 		startTime := time.Now()
 
 		traceID := generateTraceID()

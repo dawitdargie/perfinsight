@@ -3,6 +3,7 @@ package analysis
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	_ "github.com/lib/pq"
 )
@@ -14,7 +15,15 @@ type AnalysisService struct {
 }
 
 func NewAnalysisService(databaseURL string) (*AnalysisService, error) {
-	db, err := sql.Open("postgres", databaseURL)
+	connStr := databaseURL
+	if !strings.Contains(connStr, "binary_parameters") {
+		if strings.Contains(connStr, "?") {
+			connStr += "&binary_parameters=yes"
+		} else {
+			connStr += "?binary_parameters=yes"
+		}
+	}
+	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
 	}

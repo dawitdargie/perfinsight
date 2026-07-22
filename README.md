@@ -1,10 +1,10 @@
 # PerfInsight
 
-Go runtime performance intelligence platform. Instrument your Go application with 3 lines of code and get detailed performance reports — no agents, no infrastructure, no ML.
+Go runtime performance intelligence platform. Instrument your Go application and get detailed performance reports.
 
 ## Quick Start
 
-### Instrument Your Go Application
+# Instrument Your Go Application
 
 ## 1. Install the SDK
 
@@ -84,7 +84,7 @@ Alternatively, you can instrument individual routes manually:
 ```go
 http.HandleFunc("/your-route", sdk.HTTPMiddleware(yourHandler))
 ```
-### Run your app
+# 6. Run your app
 
 ```bash
 go run main.go
@@ -97,7 +97,7 @@ For more reliable analysis results, send multiple requests to generate enough te
 
 The SDK silently collects traces and sends them to the collector every 5 seconds.
 
-### Run analysis (no clone, no DB password)
+# 7. Run analysis
 
 ```bash
 curl "https://perfinsight-collector.onrender.com/analyze?endpoint=all&service=YOUR_SERVICE_NAME"
