@@ -167,7 +167,6 @@ Runs full pipeline: PostgreSQL → collector → test traffic → analysis → c
 | N+1 Query | Same SQL executed ≥ 10 times in one request |
 | External API Bottleneck | External call time > 70% of total latency |
 | Performance Regression | Current avg > 2× baseline avg |
-| High Error Rate | Error rate > 5% |
 | High Internal Processing | CPU/business logic > 50% of latency |
 | High Latency | Latency > 500ms AND > 1.5× baseline |
 

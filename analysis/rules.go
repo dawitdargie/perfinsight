@@ -21,9 +21,6 @@ func EvaluateRules(input AnalysisInput) []Issue {
 	if issue := rulePerformanceRegression(input); issue != nil {
 		issues = append(issues, *issue)
 	}
-	if issue := ruleHighErrorRate(input); issue != nil {
-		issues = append(issues, *issue)
-	}
 	if issue := ruleHighInternalProcessing(input); issue != nil {
 		issues = append(issues, *issue)
 	}

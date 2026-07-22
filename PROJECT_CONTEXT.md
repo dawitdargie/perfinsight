@@ -4,8 +4,8 @@
 Go runtime performance intelligence platform.
 Instruments Go backend services, collects runtime telemetry,
 detects N+1 queries, database bottlenecks, external API
-slowdowns, performance regressions, high error rates,
-internal processing issues, and high latency using deterministic
+slowdowns, performance regressions, internal processing issues,
+and high latency using deterministic
 rule-based analysis. No ML. No AI. Pure logic.
 
 ## Module Path
@@ -74,8 +74,7 @@ Evidence, Suggestion, BaselineMs, CurrentMs
 | 2 | N_PLUS_ONE_QUERY | Same SQL count ≥ 10 | medium/critical |
 | 3 | EXTERNAL_API_BOTTLENECK | External time > 70% of latency | high |
 | 4 | PERFORMANCE_REGRESSION | Current avg > 2× baseline | critical |
-| 5 | HIGH_ERROR_RATE | Error rate > 5% | medium/critical |
-| 6 | HIGH_INTERNAL_PROCESSING | Internal time > 50% of latency | medium/critical |
+| 5 | HIGH_INTERNAL_PROCESSING | Internal time > 50% of latency | medium/critical |
 | 7 | HIGH_LATENCY | Latency > 500ms AND > 1.5× baseline | medium |
 
 ## Deployment
